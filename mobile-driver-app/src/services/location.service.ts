@@ -2,12 +2,26 @@ import Geolocation from 'react-native-geolocation-service';
 import BackgroundGeolocation from 'react-native-background-geolocation';
 import { Platform, PermissionsAndroid } from 'react-native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from './api';
 import { Location } from '@/types';
+
+const FAILED_LOCATION_QUEUE_KEY = '@ordak:failedLocationQueue';
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 5000; // 5 seconds
+
+interface QueuedLocation {
+  location: Location;
+  runId: string;
+  timestamp: number;
+  attempts: number;
+}
 
 class LocationService {
   private watchId: number | null = null;
   private isTracking: boolean = false;
+  private failedLocationQueue: QueuedLocation[] = [];
+  private retryTimer: NodeJS.Timeout | null = null;
 
   /**
    * Request location permissions
@@ -219,8 +233,119 @@ class LocationService {
         runId,
       });
     } catch (error) {
-      console.error('Error sending location update:', error);
-      // Store locally for retry
+      console.error('[LocationService] Error sending location update:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        runId,
+      });
+
+      // Add to retry queue
+      await this.queueFailedLocation(location, runId);
+    }
+  }
+
+  /**
+   * Queue failed location update for retry
+   */
+  private async queueFailedLocation(location: Location, runId: string): Promise<void> {
+    const queuedLocation: QueuedLocation = {
+      location,
+      runId,
+      timestamp: Date.now(),
+      attempts: 0,
+    };
+
+    this.failedLocationQueue.push(queuedLocation);
+
+    // Persist to AsyncStorage
+    try {
+      await AsyncStorage.setItem(
+        FAILED_LOCATION_QUEUE_KEY,
+        JSON.stringify(this.failedLocationQueue)
+      );
+    } catch (storageError) {
+      console.error('[LocationService] Failed to persist location queue:', storageError);
+    }
+
+    // Start retry timer if not already running
+    if (!this.retryTimer) {
+      this.startRetryTimer();
+    }
+  }
+
+  /**
+   * Start retry timer for failed location updates
+   */
+  private startRetryTimer(): void {
+    this.retryTimer = setInterval(() => {
+      this.retryFailedLocations();
+    }, RETRY_DELAY_MS);
+  }
+
+  /**
+   * Retry failed location updates
+   */
+  private async retryFailedLocations(): Promise<void> {
+    if (this.failedLocationQueue.length === 0) {
+      // Stop timer if queue is empty
+      if (this.retryTimer) {
+        clearInterval(this.retryTimer);
+        this.retryTimer = null;
+      }
+      return;
+    }
+
+    const queue = [...this.failedLocationQueue];
+    this.failedLocationQueue = [];
+
+    for (const item of queue) {
+      try {
+        await apiClient.post('/tracking/location', {
+          ...item.location,
+          runId: item.runId,
+        });
+
+        console.log('[LocationService] Successfully sent queued location update');
+      } catch (error) {
+        item.attempts += 1;
+
+        if (item.attempts < MAX_RETRY_ATTEMPTS) {
+          // Re-queue for another retry
+          this.failedLocationQueue.push(item);
+        } else {
+          console.warn('[LocationService] Dropped location update after max retries:', {
+            runId: item.runId,
+            attempts: item.attempts,
+          });
+        }
+      }
+    }
+
+    // Persist updated queue
+    try {
+      await AsyncStorage.setItem(
+        FAILED_LOCATION_QUEUE_KEY,
+        JSON.stringify(this.failedLocationQueue)
+      );
+    } catch (storageError) {
+      console.error('[LocationService] Failed to persist location queue:', storageError);
+    }
+  }
+
+  /**
+   * Load failed locations from storage on init
+   */
+  async loadFailedLocationQueue(): Promise<void> {
+    try {
+      const stored = await AsyncStorage.getItem(FAILED_LOCATION_QUEUE_KEY);
+      if (stored) {
+        this.failedLocationQueue = JSON.parse(stored);
+        if (this.failedLocationQueue.length > 0) {
+          this.startRetryTimer();
+        }
+      }
+    } catch (error) {
+      console.error('[LocationService] Failed to load location queue:', error);
+      this.failedLocationQueue = [];
     }
   }
 
