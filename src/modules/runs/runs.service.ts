@@ -379,18 +379,24 @@ export class RunsService {
       // Update order sequence based on optimization
       const serviceSteps = route.steps.filter((step) => step.type === 'service');
 
-      for (let i = 0; i < serviceSteps.length; i++) {
-        const step = serviceSteps[i];
-        if (step && step.id) {
-          await tx.order.update({
+      // Batch update all orders in parallel to avoid N+1 query problem
+      const updatePromises = serviceSteps
+        .map((step, i) => {
+          if (!step || !step.id) {
+            return null;
+          }
+
+          return tx.order.update({
             where: { id: step.id },
             data: {
               sequenceInRun: i + 1,
               estimatedArrival: new Date(step.arrival * 1000),
             },
           });
-        }
-      }
+        })
+        .filter((promise): promise is Promise<any> => promise !== null);
+
+      await Promise.all(updatePromises);
     });
   }
 
