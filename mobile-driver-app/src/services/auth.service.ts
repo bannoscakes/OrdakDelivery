@@ -83,9 +83,31 @@ class AuthService {
   async getStoredDriver(): Promise<Driver | null> {
     try {
       const driverData = await AsyncStorage.getItem(STORAGE_KEYS.DRIVER_DATA);
-      return driverData ? JSON.parse(driverData) : null;
+      if (!driverData) {
+        return null;
+      }
+
+      try {
+        const parsed = JSON.parse(driverData);
+        return parsed;
+      } catch (parseError) {
+        // Corrupted data - clear it and return null
+        console.error('[AuthService] Corrupted driver data detected, clearing:', {
+          error: parseError instanceof Error ? parseError.message : 'Parse error',
+        });
+
+        try {
+          await AsyncStorage.removeItem(STORAGE_KEYS.DRIVER_DATA);
+        } catch (removeError) {
+          console.error('[AuthService] Failed to remove corrupted driver data:', removeError);
+        }
+
+        return null;
+      }
     } catch (error) {
-      console.error('Error getting stored driver:', error);
+      console.error('[AuthService] Error getting stored driver:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return null;
     }
   }
