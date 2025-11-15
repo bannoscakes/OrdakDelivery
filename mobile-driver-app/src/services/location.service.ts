@@ -182,7 +182,9 @@ class LocationService {
    */
   async startBackgroundTracking(): Promise<void> {
     const state = await BackgroundGeolocation.start();
-    console.log('Background tracking started:', state);
+    if (__DEV__) {
+      console.warn('Background tracking started:', state);
+    }
   }
 
   /**
@@ -190,7 +192,9 @@ class LocationService {
    */
   async stopBackgroundTracking(): Promise<void> {
     await BackgroundGeolocation.stop();
-    console.log('Background tracking stopped');
+    if (__DEV__) {
+      console.warn('Background tracking stopped');
+    }
   }
 
   /**

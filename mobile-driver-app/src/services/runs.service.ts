@@ -1,5 +1,5 @@
 import { apiClient } from './api';
-import { DeliveryRun, ApiResponse, PaginatedResponse, RunStatus } from '@/types';
+import { DeliveryRun, PaginatedResponse, RunStatus } from '@/types';
 
 export interface RunsQueryParams {
   status?: RunStatus;
@@ -15,7 +15,8 @@ class RunsService {
    * Get all delivery runs for the current driver
    */
   async getMyRuns(params?: RunsQueryParams): Promise<PaginatedResponse<DeliveryRun>> {
-    return apiClient.get('/runs/my-runs', params) as Promise<PaginatedResponse<DeliveryRun>>;
+    const response = await apiClient.get<PaginatedResponse<DeliveryRun>>('/runs/my-runs', params);
+    return response.data;
   }
 
   /**
@@ -75,11 +76,12 @@ class RunsService {
    * Get run history
    */
   async getRunHistory(page: number = 1, limit: number = 20): Promise<PaginatedResponse<DeliveryRun>> {
-    return apiClient.get('/runs/my-runs', {
+    const response = await apiClient.get<PaginatedResponse<DeliveryRun>>('/runs/my-runs', {
       status: 'COMPLETED',
       page,
       limit,
-    }) as Promise<PaginatedResponse<DeliveryRun>>;
+    });
+    return response.data;
   }
 
   /**

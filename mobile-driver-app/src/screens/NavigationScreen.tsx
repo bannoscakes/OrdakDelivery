@@ -1,11 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Alert,
-  Dimensions,
   Platform,
   Linking,
 } from 'react-native';
@@ -13,13 +12,18 @@ import MapboxGL from '@rnmapbox/maps';
 import Config from 'react-native-config';
 import { useRunsStore } from '@/store/runs.store';
 import { locationService } from '@/services/location.service';
-import { ordersService } from '@/services/orders.service';
-import { Order, Location } from '@/types';
+import { Location } from '@/types';
 
 // Initialize Mapbox
 MapboxGL.setAccessToken(Config.MAPBOX_ACCESS_TOKEN || '');
 
-const { width, height } = Dimensions.get('window');
+// Mapbox line layer style (extracted to prevent inline style warning)
+const routeLineStyle = {
+  lineColor: '#2196F3',
+  lineWidth: 4,
+  lineCap: 'round',
+  lineJoin: 'round',
+} as const;
 
 interface NavigationScreenProps {
   navigation: any;
@@ -32,38 +36,17 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
     currentRun,
     currentOrderIndex,
     moveToNextOrder,
-    moveToPreviousOrder,
     updateCurrentLocation,
     currentLocation,
   } = useRunsStore();
 
-  const [isTracking, setIsTracking] = useState(false);
   const [userHasPanned, setUserHasPanned] = useState(false);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const mapRef = useRef<MapboxGL.MapView>(null);
 
   const currentOrder = currentRun?.orders[currentOrderIndex];
 
-  useEffect(() => {
-    startLocationTracking();
-    return () => {
-      locationService.stopTracking();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (currentLocation && currentOrder && !userHasPanned) {
-      // Center map on current location only if user hasn't manually panned
-      centerOnCurrentLocation();
-    }
-  }, [currentLocation, currentOrder, userHasPanned]);
-
-  useEffect(() => {
-    // Reset userHasPanned when currentOrder changes to auto-center on new stop
-    setUserHasPanned(false);
-  }, [currentOrder]);
-
-  const startLocationTracking = async () => {
+  const startLocationTracking = useCallback(async () => {
     const hasPermission = await locationService.requestPermissions();
     if (!hasPermission) {
       Alert.alert('Permission Required', 'Location permission is required for navigation');
@@ -72,16 +55,15 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
 
     locationService.startTracking((location: Location) => {
       updateCurrentLocation(location);
-      setIsTracking(true);
 
       // Send location to server
       if (runId) {
         locationService.sendLocationUpdate(location, runId);
       }
     });
-  };
+  }, [runId, updateCurrentLocation]);
 
-  const centerOnCurrentLocation = () => {
+  const centerOnCurrentLocation = useCallback(() => {
     if (currentLocation && cameraRef.current) {
       cameraRef.current.setCamera({
         centerCoordinate: [currentLocation.longitude, currentLocation.latitude],
@@ -91,17 +73,36 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
       // Allow auto-centering after manual re-center button press
       setUserHasPanned(false);
     }
-  };
+  }, [currentLocation]);
 
-  const handleCameraChanged = (event: any) => {
+  const handleCameraChanged = useCallback((event: any) => {
     // Only mark as user panned if it was actually a gesture
     if (event?.gestures?.isGestureActive) {
       setUserHasPanned(true);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    startLocationTracking();
+    return () => {
+      locationService.stopTracking();
+    };
+  }, [startLocationTracking]);
+
+  useEffect(() => {
+    if (currentLocation && currentOrder && !userHasPanned) {
+      // Center map on current location only if user hasn't manually panned
+      centerOnCurrentLocation();
+    }
+  }, [currentLocation, currentOrder, userHasPanned, centerOnCurrentLocation]);
+
+  useEffect(() => {
+    // Reset userHasPanned when currentOrder changes to auto-center on new stop
+    setUserHasPanned(false);
+  }, [currentOrder]);
 
   const handleArrived = () => {
-    if (!currentOrder) return;
+    if (!currentOrder) {return;}
 
     navigation.navigate('ProofOfDelivery', {
       orderId: currentOrder.id,
@@ -131,7 +132,7 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
   };
 
   const openInMapsApp = () => {
-    if (!currentOrder?.location) return;
+    if (!currentOrder?.location) {return;}
 
     const { latitude, longitude } = currentOrder.location;
     const label = `${currentOrder.customer.firstName} ${currentOrder.customer.lastName}`;
@@ -190,7 +191,7 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
 
         {/* Delivery Stops */}
         {currentRun.orders.map((order, index) => {
-          if (!order.location) return null;
+          if (!order.location) {return null;}
 
           const isCurrentStop = index === currentOrderIndex;
           const isCompleted = ['DELIVERED', 'FAILED'].includes(order.status);
@@ -220,15 +221,7 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
               type: 'LineString',
               coordinates: routeCoordinates,
             }}>
-            <MapboxGL.LineLayer
-              id="route-line"
-              style={{
-                lineColor: '#2196F3',
-                lineWidth: 4,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
+            <MapboxGL.LineLayer id="route-line" style={routeLineStyle} />
           </MapboxGL.ShapeSource>
         )}
       </MapboxGL.MapView>
