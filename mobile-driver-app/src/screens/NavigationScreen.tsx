@@ -36,20 +36,6 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
 
   const currentOrder = currentRun?.orders[currentOrderIndex];
 
-  useEffect(() => {
-    startLocationTracking();
-    return () => {
-      locationService.stopTracking();
-    };
-  }, [startLocationTracking]);
-
-  useEffect(() => {
-    if (currentLocation && currentOrder) {
-      // Center map on current location
-      centerOnCurrentLocation();
-    }
-  }, [currentLocation, currentOrder, centerOnCurrentLocation]);
-
   const startLocationTracking = useCallback(async () => {
     const hasPermission = await locationService.requestPermissions();
     if (!hasPermission) {
@@ -76,6 +62,20 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
       });
     }
   }, [currentLocation]);
+
+  useEffect(() => {
+    startLocationTracking();
+    return () => {
+      locationService.stopTracking();
+    };
+  }, [startLocationTracking]);
+
+  useEffect(() => {
+    if (currentLocation && currentOrder) {
+      // Center map on current location
+      centerOnCurrentLocation();
+    }
+  }, [currentLocation, currentOrder, centerOnCurrentLocation]);
 
   const handleArrived = () => {
     if (!currentOrder) {return;}
