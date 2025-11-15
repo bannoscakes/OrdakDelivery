@@ -38,6 +38,7 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
   } = useRunsStore();
 
   const [isTracking, setIsTracking] = useState(false);
+  const [userHasPanned, setUserHasPanned] = useState(false);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const mapRef = useRef<MapboxGL.MapView>(null);
 
@@ -51,11 +52,16 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
   }, []);
 
   useEffect(() => {
-    if (currentLocation && currentOrder) {
-      // Center map on current location
+    if (currentLocation && currentOrder && !userHasPanned) {
+      // Center map on current location only if user hasn't manually panned
       centerOnCurrentLocation();
     }
-  }, [currentLocation]);
+  }, [currentLocation, currentOrder]);
+
+  useEffect(() => {
+    // Reset userHasPanned when currentOrder changes to auto-center on new stop
+    setUserHasPanned(false);
+  }, [currentOrder]);
 
   const startLocationTracking = async () => {
     const hasPermission = await locationService.requestPermissions();
@@ -82,7 +88,13 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
         zoomLevel: 16,
         animationDuration: 1000,
       });
+      // Allow auto-centering after manual re-center button press
+      setUserHasPanned(false);
     }
+  };
+
+  const handleMapPan = () => {
+    setUserHasPanned(true);
   };
 
   const handleArrived = () => {
@@ -148,7 +160,8 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
       <MapboxGL.MapView
         ref={mapRef}
         style={styles.map}
-        styleURL={Config.MAPBOX_STYLE_URL || MapboxGL.StyleURL.Street}>
+        styleURL={Config.MAPBOX_STYLE_URL || MapboxGL.StyleURL.Street}
+        onRegionDidChange={handleMapPan}>
         <MapboxGL.Camera
           ref={cameraRef}
           zoomLevel={13}

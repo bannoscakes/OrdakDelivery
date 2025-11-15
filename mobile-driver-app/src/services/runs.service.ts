@@ -15,7 +15,7 @@ class RunsService {
    * Get all delivery runs for the current driver
    */
   async getMyRuns(params?: RunsQueryParams): Promise<PaginatedResponse<DeliveryRun>> {
-    return apiClient.get<DeliveryRun[]>('/runs/my-runs', params);
+    return apiClient.get('/runs/my-runs', params) as Promise<PaginatedResponse<DeliveryRun>>;
   }
 
   /**
@@ -75,11 +75,11 @@ class RunsService {
    * Get run history
    */
   async getRunHistory(page: number = 1, limit: number = 20): Promise<PaginatedResponse<DeliveryRun>> {
-    return apiClient.get<DeliveryRun[]>('/runs/my-runs', {
+    return apiClient.get('/runs/my-runs', {
       status: 'COMPLETED',
       page,
       limit,
-    });
+    }) as Promise<PaginatedResponse<DeliveryRun>>;
   }
 
   /**
