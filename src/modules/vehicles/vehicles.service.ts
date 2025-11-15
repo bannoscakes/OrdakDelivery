@@ -1,6 +1,6 @@
 import prisma from '@config/database';
 import logger from '@config/logger';
-import { AppError } from '@/middleware/errorHandler';
+import { AppError, createAppError } from '@/middleware/errorHandler';
 import { Vehicle, VehicleType, Prisma } from '@prisma/client';
 import { MAX_PAGINATION_LIMIT, DEFAULT_PAGINATION_LIMIT } from '@/constants/pagination';
 import { getBusyResourceIds} from '@/utils/availability';

@@ -156,7 +156,7 @@ async function main() {
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
+  tomorrow.setUTCHours(0, 0, 0, 0);
 
   for (let i = 0; i < addresses.length; i++) {
     const addr = addresses[i];
@@ -164,10 +164,10 @@ async function main() {
 
     const scheduledDate = new Date(tomorrow);
     const timeWindowStart = new Date(tomorrow);
-    timeWindowStart.setHours(9 + i * 2, 0, 0, 0);
+    timeWindowStart.setUTCHours(9 + i * 2, 0, 0, 0);
 
     const timeWindowEnd = new Date(timeWindowStart);
-    timeWindowEnd.setHours(timeWindowEnd.getHours() + 2);
+    timeWindowEnd.setUTCHours(timeWindowEnd.getUTCHours() + 2);
 
     await prisma.order.upsert({
       where: { orderNumber: `ORD-SEED-${i + 1}` },
