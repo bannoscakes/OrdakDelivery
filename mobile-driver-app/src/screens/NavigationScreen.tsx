@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
+  Platform,
+  Linking,
 } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import Config from 'react-native-config';
