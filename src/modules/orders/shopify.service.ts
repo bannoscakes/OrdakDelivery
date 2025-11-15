@@ -143,7 +143,7 @@ export class ShopifyService {
           postalCode: address.zip,
           country: address.country_code,
           ...(locationWKT && {
-            location: Prisma.raw(`ST_GeomFromText('${locationWKT}', 4326)`),
+            location: Prisma.sql`ST_GeomFromText(${locationWKT}, 4326)`,
           }),
           geocoded,
           geocodedAt: geocoded ? new Date() : null,

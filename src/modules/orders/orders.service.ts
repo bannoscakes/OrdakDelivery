@@ -101,7 +101,7 @@ export class OrdersService {
           postalCode: input.address.postalCode,
           country: input.address.country || 'CA',
           ...(locationWKT && {
-            location: Prisma.raw(`ST_GeomFromText('${locationWKT}', 4326)`),
+            location: Prisma.sql`ST_GeomFromText(${locationWKT}, 4326)`,
           }),
           geocoded,
           geocodedAt: geocoded ? new Date() : null,
