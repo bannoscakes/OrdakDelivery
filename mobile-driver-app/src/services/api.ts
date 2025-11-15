@@ -129,11 +129,22 @@ class ApiClient {
   }
 
   async clearAuth(): Promise<void> {
-    await AsyncStorage.multiRemove([
-      STORAGE_KEYS.ACCESS_TOKEN,
-      STORAGE_KEYS.REFRESH_TOKEN,
-      STORAGE_KEYS.DRIVER_DATA,
-    ]);
+    try {
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.ACCESS_TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
+        STORAGE_KEYS.DRIVER_DATA,
+      ]);
+    } catch (error) {
+      console.error('[ApiClient] Failed to clear auth data from AsyncStorage:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        keys: [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, STORAGE_KEYS.DRIVER_DATA],
+      });
+
+      throw new Error(
+        `Failed to clear authentication data: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 
   getBaseURL(): string {

@@ -7,6 +7,13 @@ export interface LoginResponse {
   tokens: AuthTokens;
 }
 
+export interface LogoutResult {
+  success: boolean;
+  localCleared: boolean;
+  serverLoggedOut: boolean;
+  error?: string;
+}
+
 class AuthService {
   /**
    * Login driver with email and password
@@ -23,15 +30,51 @@ class AuthService {
 
   /**
    * Logout driver
+   *
+   * Handles both server-side session invalidation and local auth cleanup.
+   * Ensures local cleanup always happens even if server call fails.
+   *
+   * @returns {Promise<LogoutResult>} Status of logout operation
    */
-  async logout(): Promise<void> {
+  async logout(): Promise<LogoutResult> {
+    let serverLoggedOut = false;
+    let localCleared = false;
+    let error: string | undefined;
+
+    // Step 1: Try to invalidate server-side session
     try {
       await apiClient.post('/auth/logout');
-    } catch (error) {
-      console.warn('Logout API call failed:', error);
-    } finally {
-      await apiClient.clearAuth();
+      serverLoggedOut = true;
+    } catch (err) {
+      console.error('[AuthService] Server logout failed:', {
+        message: err instanceof Error ? err.message : 'Unknown error',
+      });
+      error = 'Server logout failed';
     }
+
+    // Step 2: Always clear local auth data (critical)
+    try {
+      await apiClient.clearAuth();
+      localCleared = true;
+    } catch (err) {
+      const clearError = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[AuthService] CRITICAL: Failed to clear local auth:', clearError);
+
+      error = `Failed to clear local auth: ${clearError}${error ? `. ${error}` : ''}`;
+    }
+
+    const success = localCleared;
+
+    if (success && !serverLoggedOut) {
+      console.warn('[AuthService] Partial logout: local cleared, server session may be active');
+    }
+
+    return {
+      success,
+      localCleared,
+      serverLoggedOut,
+      error,
+    };
   }
 
   /**
