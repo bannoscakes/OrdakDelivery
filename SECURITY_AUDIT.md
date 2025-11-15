@@ -1,9 +1,9 @@
 # Security & Code Quality Audit - Issue Tracker
 
 **Generated:** 2024-01-15
-**Last Updated:** 2024-11-15 (HIGH priority complete + 4 MEDIUM issues resolved)
+**Last Updated:** 2024-11-15 (HIGH priority complete + 8 MEDIUM issues resolved)
 **Status:** ✅ All CRITICAL & HIGH issues RESOLVED | 🟢 MEDIUM priority in progress
-**Total Issues:** 31 (14 resolved, 17 remaining)
+**Total Issues:** 31 (18 resolved, 13 remaining)
 
 ---
 
@@ -192,7 +192,7 @@
   - **Fix Required:** Investigate if Mapbox supports header auth, or document risk
   - **Estimated Time:** 15 minutes
 
-- [ ] **MEDIUM-006: Sensitive Information in Logs**
+- [x] **MEDIUM-006: Sensitive Information in Logs** ✅ FIXED
   - **File:** `src/utils/shopify.ts:26-29`
   - **Issue:** Logging HMAC values could expose secrets
   - **Fix Required:** Remove HMAC values from logs
@@ -200,7 +200,7 @@
 
 ### Security - CORS Configuration
 
-- [ ] **MEDIUM-007: CORS Configuration Limitations**
+- [x] **MEDIUM-007: CORS Configuration Limitations** ✅ FIXED
   - **File:** `src/app.ts:24-29`
   - **Issue:** Single static origin, no multi-environment support
   - **Fix Required:** Support comma-separated origins with validation
@@ -208,7 +208,7 @@
 
 ### Performance - Pagination
 
-- [ ] **MEDIUM-008: No Maximum Pagination Limit**
+- [x] **MEDIUM-008: No Maximum Pagination Limit** ✅ FIXED
   - **Files:** All service files with `listX` methods
   - **Issue:** Users can request unlimited records (`?limit=999999`)
   - **Fix Required:** Add `MAX_LIMIT = 100` constant
@@ -228,7 +228,7 @@
 
 ### Error Handling
 
-- [ ] **MEDIUM-011: Synchronous Error in Async Middleware**
+- [x] **MEDIUM-011: Synchronous Error in Async Middleware** ✅ FIXED
   - **File:** `src/middleware/shopifyWebhook.ts:9`
   - **Issue:** Throwing error synchronously in async context
   - **Fix Required:** Use `next(error)` instead of `throw`
@@ -325,9 +325,9 @@
 |----------|--------------|----------------|--------|
 | 🚨 Critical | 3 | 45 minutes | ✅ **COMPLETE** (3/3) |
 | 🔴 High | 7 | 6-7 hours | ✅ **COMPLETE** (7/7) |
-| 🟡 Medium | 14 | 6-7 hours | 🟢 **IN PROGRESS** (4/14) |
+| 🟡 Medium | 14 | 6-7 hours | 🟢 **IN PROGRESS** (8/14) |
 | 🟢 Low | 7 | 6 hours | ⏳ Pending (0/7) |
-| **TOTAL** | **31** | **~20 hours** | **45% Complete (14/31)** |
+| **TOTAL** | **31** | **~20 hours** | **58% Complete (18/31)** |
 
 ---
 

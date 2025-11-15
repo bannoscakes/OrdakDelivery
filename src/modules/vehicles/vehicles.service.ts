@@ -2,6 +2,7 @@ import prisma from '@config/database';
 import logger from '@config/logger';
 import { AppError } from '@/middleware/errorHandler';
 import { Vehicle, VehicleType, Prisma } from '@prisma/client';
+import { normalizePagination } from '@/utils/pagination';
 
 interface CreateVehicleInput {
   licensePlate: string;
@@ -107,9 +108,7 @@ export class VehiclesService {
     page?: number;
     limit?: number;
   }) {
-    const page = params.page || 1;
-    const limit = params.limit || 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePagination(params);
 
     const where: Prisma.VehicleWhereInput = {
       ...(params.type && { type: params.type }),

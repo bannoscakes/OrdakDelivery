@@ -23,9 +23,24 @@ const createApp = (): Application => {
 
   // Security middleware
   app.use(helmet());
+
+  // CORS - support multiple origins from comma-separated env variable
+  const allowedOrigins = env.CORS_ORIGIN.split(',').map(origin => origin.trim());
   app.use(
     cors({
-      origin: env.CORS_ORIGIN,
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or Postman)
+        if (!origin) {
+          callback(null, true);
+          return;
+        }
+
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
       credentials: true,
     })
   );
