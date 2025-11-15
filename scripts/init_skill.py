@@ -194,15 +194,26 @@ htmlcov/
     print(f"✓ Created .gitignore")
 
     # Create example test file
+    # Generate PascalCase class name from skill_name
+    class_name_parts = skill_name.replace('_', '-').split('-')
+    pascal_case_name = ''.join(word.capitalize() for word in class_name_parts)
+
     test_content = f'''"""
 Test suite for {skill_name}.
 """
+
+import sys
+from pathlib import Path
+
+# Add project root to sys.path to enable imports
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 import unittest
 from src.main import main
 
 
-class Test{skill_name.replace("-", "_").title()}(unittest.TestCase):
+class Test{pascal_case_name}(unittest.TestCase):
     """Test cases for {skill_name}."""
 
     def test_main(self):
@@ -232,6 +243,13 @@ This directory contains example usage of the {skill_name} skill.
 ## Basic Example
 
 ```python
+import sys
+from pathlib import Path
+
+# Add project root to sys.path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from src.main import main
 
 main()
@@ -262,6 +280,13 @@ Main function for the skill.
 
 **Example:**
 ```python
+import sys
+from pathlib import Path
+
+# Add project root to sys.path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from src.main import main
 main()
 ```
@@ -313,7 +338,7 @@ Examples:
 
     try:
         create_skill_structure(args.skill_name, args.path)
-    except Exception as e:
+    except (ValueError, OSError) as e:
         print(f"❌ Error: {e}", file=sys.stderr)
         sys.exit(1)
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -39,6 +39,8 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
     updateCurrentLocation,
     currentLocation,
   } = useRunsStore();
+
+  const [userHasPanned, setUserHasPanned] = useState(false);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const mapRef = useRef<MapboxGL.MapView>(null);
 
@@ -68,8 +70,17 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
         zoomLevel: 16,
         animationDuration: 1000,
       });
+      // Allow auto-centering after manual re-center button press
+      setUserHasPanned(false);
     }
   }, [currentLocation]);
+
+  const handleCameraChanged = useCallback((event: any) => {
+    // Only mark as user panned if it was actually a gesture
+    if (event?.gestures?.isGestureActive) {
+      setUserHasPanned(true);
+    }
+  }, []);
 
   useEffect(() => {
     startLocationTracking();
@@ -79,11 +90,16 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
   }, [startLocationTracking]);
 
   useEffect(() => {
-    if (currentLocation && currentOrder) {
-      // Center map on current location
+    if (currentLocation && currentOrder && !userHasPanned) {
+      // Center map on current location only if user hasn't manually panned
       centerOnCurrentLocation();
     }
-  }, [currentLocation, currentOrder, centerOnCurrentLocation]);
+  }, [currentLocation, currentOrder, userHasPanned, centerOnCurrentLocation]);
+
+  useEffect(() => {
+    // Reset userHasPanned when currentOrder changes to auto-center on new stop
+    setUserHasPanned(false);
+  }, [currentOrder]);
 
   const handleArrived = () => {
     if (!currentOrder) {return;}
@@ -148,7 +164,8 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
       <MapboxGL.MapView
         ref={mapRef}
         style={styles.map}
-        styleURL={Config.MAPBOX_STYLE_URL || MapboxGL.StyleURL.Street}>
+        styleURL={Config.MAPBOX_STYLE_URL || MapboxGL.StyleURL.Street}
+        onCameraChanged={handleCameraChanged}>
         <MapboxGL.Camera
           ref={cameraRef}
           zoomLevel={13}
