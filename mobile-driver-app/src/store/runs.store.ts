@@ -36,9 +36,9 @@ export const useRunsStore = create<RunsState>((set, get) => ({
     try {
       const runs = await runsService.getTodayRuns();
       set({ runs, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       set({
-        error: error.message || 'Failed to fetch runs',
+        error: error instanceof Error ? error.message : 'Failed to fetch runs',
         isLoading: false,
       });
     }
@@ -49,9 +49,9 @@ export const useRunsStore = create<RunsState>((set, get) => ({
     try {
       const runs = await runsService.getUpcomingRuns();
       set({ runs, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       set({
-        error: error.message || 'Failed to fetch upcoming runs',
+        error: error instanceof Error ? error.message : 'Failed to fetch upcoming runs',
         isLoading: false,
       });
     }
@@ -70,9 +70,9 @@ export const useRunsStore = create<RunsState>((set, get) => ({
         currentOrderIndex: 0,
         isLoading: false,
       });
-    } catch (error: any) {
+    } catch (error) {
       set({
-        error: error.message || 'Failed to start run',
+        error: error instanceof Error ? error.message : 'Failed to start run',
         isLoading: false,
       });
       throw error;
@@ -88,9 +88,9 @@ export const useRunsStore = create<RunsState>((set, get) => ({
         currentOrderIndex: 0,
         isLoading: false,
       });
-    } catch (error: any) {
+    } catch (error) {
       set({
-        error: error.message || 'Failed to complete run',
+        error: error instanceof Error ? error.message : 'Failed to complete run',
         isLoading: false,
       });
       throw error;
@@ -123,7 +123,10 @@ export const useRunsStore = create<RunsState>((set, get) => ({
       const refreshedRun = await runsService.getRun(currentRun.id);
       set({ currentRun: refreshedRun });
     } catch (error) {
-      console.error('Failed to refresh current run:', error);
+      console.error('[RunsStore] Failed to refresh current run:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        runId: currentRun.id,
+      });
     }
   },
 

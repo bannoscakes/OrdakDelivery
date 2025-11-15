@@ -34,9 +34,10 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
       set({
-        error: error.message || 'Login failed',
+        error: errorMessage,
         isLoading: false,
       });
       throw error;
@@ -44,18 +45,33 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
   },
 
   logout: async () => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      await authService.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
+      const result = await authService.logout();
+
+      // Always clear local state (even if server logout failed)
       set({
         driver: null,
         tokens: null,
         isAuthenticated: false,
         isLoading: false,
-        error: null,
+        error: result.success ? null : result.error || 'Logout failed',
+      });
+
+      // Log warning if partial logout
+      if (result.success && !result.serverLoggedOut) {
+        console.warn('[AuthStore] Partial logout: server session may still be active');
+      }
+    } catch (error) {
+      console.error('[AuthStore] Logout error:', error);
+
+      // Clear local state anyway (logout should always succeed locally)
+      set({
+        driver: null,
+        tokens: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Logout error',
       });
     }
   },
@@ -74,7 +90,10 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
         }
       }
     } catch (error) {
-      console.error('Error loading stored auth:', error);
+      console.error('[AuthStore] Error loading stored auth:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to load stored auth' });
     } finally {
       set({ isLoading: false });
     }
