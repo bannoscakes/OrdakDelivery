@@ -40,8 +40,8 @@ const RunDetailsScreen: React.FC<RunDetailsScreenProps> = ({ navigation, route }
             try {
               await startRun(runId);
               navigation.navigate('Navigation', { runId });
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to start run');
+            } catch (error) {
+              Alert.alert('Error', error instanceof Error ? error.message : 'Failed to start run');
             }
           },
         },
@@ -74,8 +74,8 @@ const RunDetailsScreen: React.FC<RunDetailsScreenProps> = ({ navigation, route }
               await completeRun(runId);
               Alert.alert('Success', 'Run completed successfully!');
               navigation.navigate('Dashboard');
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to complete run');
+            } catch (error) {
+              Alert.alert('Error', error instanceof Error ? error.message : 'Failed to complete run');
             }
           },
         },

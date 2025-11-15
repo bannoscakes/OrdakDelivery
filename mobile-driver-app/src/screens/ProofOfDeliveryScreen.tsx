@@ -136,7 +136,7 @@ const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
   };
 
   const submitFailure = async () => {
-    setShowFailureModal(true);
+    await confirmFailedDelivery();
   };
 
   const confirmFailedDelivery = async () => {
