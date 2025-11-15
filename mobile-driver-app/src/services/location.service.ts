@@ -155,7 +155,7 @@ class LocationService {
       logLevel: BackgroundGeolocation.LOG_LEVEL_VERBOSE,
       stopOnTerminate: false,
       startOnBoot: true,
-      url: `${apiClient['client'].defaults.baseURL}/tracking/location`,
+      url: `${apiClient.getBaseURL()}/tracking/location`,
       autoSync: true,
       headers: {
         'X-Run-ID': runId,

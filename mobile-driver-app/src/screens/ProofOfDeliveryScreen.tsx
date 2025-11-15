@@ -138,6 +138,10 @@ const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
   };
 
   const submitFailure = async () => {
+    setShowFailureModal(true);
+  };
+
+  const confirmFailedDelivery = async () => {
     if (!failureReason.trim()) {
       Alert.alert('Required', 'Please provide a reason for failure');
       return;
@@ -145,9 +149,12 @@ const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
 
     setShowFailureModal(false);
     setIsSubmitting(true);
+
     try {
       await ordersService.failOrder(orderId, failureReason);
       await refreshCurrentRun();
+
+      setFailureReason(''); // Clear for next time
 
       Alert.alert('Marked as Failed', 'Order has been marked as failed', [
         {
@@ -293,6 +300,47 @@ const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Failure Reason Modal */}
+      <Modal
+        visible={showFailureModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowFailureModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.failureModalContent}>
+            <Text style={styles.failureModalTitle}>Delivery Failed</Text>
+            <Text style={styles.failureModalSubtitle}>
+              Please provide a reason for the failure:
+            </Text>
+            <TextInput
+              style={[styles.input, styles.failureReasonInput]}
+              placeholder="Reason for failure..."
+              value={failureReason}
+              onChangeText={setFailureReason}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              autoFocus
+            />
+            <View style={styles.failureModalButtons}>
+              <TouchableOpacity
+                style={[styles.failureModalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowFailureModal(false);
+                  setFailureReason('');
+                }}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.failureModalButton, styles.confirmFailButton]}
+                onPress={confirmFailedDelivery}>
+                <Text style={styles.confirmFailButtonText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Signature Modal */}
       {showSignaturePad && (
@@ -608,11 +656,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 24,
     width: '85%',
+    padding: 20,
+  },
+  failureModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
     maxWidth: 400,
   },
   failureModalTitle: {
     fontSize: 20,
     fontWeight: '600',
+    fontWeight: 'bold',
     color: '#333',
     marginBottom: 8,
   },
@@ -631,6 +687,9 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     minHeight: 100,
     marginBottom: 20,
+  failureReasonInput: {
+    height: 100,
+    marginBottom: 16,
   },
   failureModalButtons: {
     flexDirection: 'row',
@@ -656,6 +715,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f44336',
   },
   submitButtonText: {
+  confirmFailButton: {
+    backgroundColor: '#f44336',
+  },
+  confirmFailButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
