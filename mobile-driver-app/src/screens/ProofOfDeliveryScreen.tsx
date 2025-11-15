@@ -11,6 +11,7 @@ import {
   Image,
   Platform,
   Linking,
+  Modal,
 } from 'react-native';
 import SignatureCanvas from 'react-native-signature-canvas';
 import { launchCamera } from 'react-native-image-picker';
@@ -36,6 +37,8 @@ const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
   const [photos, setPhotos] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [showFailureModal, setShowFailureModal] = useState(false);
+  const [failureReason, setFailureReason] = useState('');
 
   const signatureRef = useRef<any>(null);
   const order = currentRun?.orders[orderIndex];
@@ -130,40 +133,40 @@ const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
   };
 
   const handleFailed = () => {
-    Alert.prompt(
-      'Delivery Failed',
-      'Please provide a reason:',
-      async (reason: string) => {
-        if (!reason) {
-          Alert.alert('Required', 'Please provide a reason for failure');
-          return;
-        }
+    setFailureReason('');
+    setShowFailureModal(true);
+  };
 
-        setIsSubmitting(true);
-        try {
-          await ordersService.failOrder(orderId, reason);
-          await refreshCurrentRun();
+  const submitFailure = async () => {
+    if (!failureReason.trim()) {
+      Alert.alert('Required', 'Please provide a reason for failure');
+      return;
+    }
 
-          Alert.alert('Marked as Failed', 'Order has been marked as failed', [
-            {
-              text: 'OK',
-              onPress: () => {
-                if (currentRun && orderIndex < currentRun.orders.length - 1) {
-                  moveToNextOrder();
-                  navigation.goBack();
-                } else {
-                  navigation.navigate('RunDetails', { runId: currentRun?.id });
-                }
-              },
-            },
-          ]);
-        } catch (error: any) {
-          Alert.alert('Error', error.message || 'Failed to update order');
-        } finally {
-          setIsSubmitting(false);
-        }
-      },
-    );
+    setShowFailureModal(false);
+    setIsSubmitting(true);
+    try {
+      await ordersService.failOrder(orderId, failureReason);
+      await refreshCurrentRun();
+
+      Alert.alert('Marked as Failed', 'Order has been marked as failed', [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (currentRun && orderIndex < currentRun.orders.length - 1) {
+              moveToNextOrder();
+              navigation.goBack();
+            } else {
+              navigation.navigate('RunDetails', { runId: currentRun?.id });
+            }
+          },
+        },
+      ]);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update order');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!order) {
@@ -332,6 +335,42 @@ const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Failure Reason Modal */}
+      <Modal
+        visible={showFailureModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFailureModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.failureModalContainer}>
+            <Text style={styles.failureModalTitle}>Delivery Failed</Text>
+            <Text style={styles.failureModalSubtitle}>Please provide a reason:</Text>
+            <TextInput
+              style={styles.failureInput}
+              placeholder="e.g., Customer not home, Wrong address..."
+              value={failureReason}
+              onChangeText={setFailureReason}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              autoFocus
+            />
+            <View style={styles.failureModalButtons}>
+              <TouchableOpacity
+                style={[styles.failureModalButton, styles.cancelButton]}
+                onPress={() => setShowFailureModal(false)}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.failureModalButton, styles.submitButton]}
+                onPress={submitFailure}>
+                <Text style={styles.submitButtonText}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -554,6 +593,69 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveSignatureButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  failureModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+  },
+  failureModalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  failureModalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+  },
+  failureInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#333',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    minHeight: 100,
+    marginBottom: 20,
+  },
+  failureModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  failureModalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  submitButton: {
+    backgroundColor: '#f44336',
+  },
+  submitButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
