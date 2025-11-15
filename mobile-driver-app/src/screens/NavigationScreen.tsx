@@ -56,7 +56,7 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
       // Center map on current location only if user hasn't manually panned
       centerOnCurrentLocation();
     }
-  }, [currentLocation, currentOrder]);
+  }, [currentLocation, currentOrder, userHasPanned]);
 
   useEffect(() => {
     // Reset userHasPanned when currentOrder changes to auto-center on new stop
@@ -161,7 +161,7 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
         ref={mapRef}
         style={styles.map}
         styleURL={Config.MAPBOX_STYLE_URL || MapboxGL.StyleURL.Street}
-        onRegionDidChange={handleMapPan}>
+        onCameraChanged={handleMapPan}>
         <MapboxGL.Camera
           ref={cameraRef}
           zoomLevel={13}
