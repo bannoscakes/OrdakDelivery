@@ -3,6 +3,7 @@ import { asyncHandler } from '@/utils/asyncHandler';
 import ordersService from './orders.service';
 import { z } from 'zod';
 import { OrderType, OrderStatus } from '@prisma/client';
+import { orderItemSchema } from './orders.types';
 
 const createOrderSchema = z.object({
   body: z.object({
@@ -31,7 +32,7 @@ const createOrderSchema = z.object({
       .string()
       .transform((val) => new Date(val))
       .optional(),
-    items: z.array(z.unknown()),
+    items: z.array(orderItemSchema).min(1, 'At least one item is required'),
     notes: z.string().optional(),
     specialInstructions: z.string().optional(),
   }),

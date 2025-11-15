@@ -3,40 +3,7 @@ import logger from '@config/logger';
 import { AppError } from '@/middleware/errorHandler';
 import geocodingService from '@/modules/geocoding/geocoding.service';
 import { Order, OrderType, OrderStatus, Prisma } from '@prisma/client';
-
-interface CreateOrderInput {
-  orderNumber: string;
-  type: OrderType;
-  customer: {
-    email?: string;
-    phone?: string;
-    firstName: string;
-    lastName: string;
-  };
-  address: {
-    line1: string;
-    line2?: string;
-    city: string;
-    province: string;
-    postalCode: string;
-    country?: string;
-  };
-  scheduledDate: Date;
-  timeWindowStart?: Date;
-  timeWindowEnd?: Date;
-  items: unknown;
-  notes?: string;
-  specialInstructions?: string;
-}
-
-interface UpdateOrderInput {
-  status?: OrderStatus;
-  scheduledDate?: Date;
-  timeWindowStart?: Date;
-  timeWindowEnd?: Date;
-  notes?: string;
-  specialInstructions?: string;
-}
+import type { CreateOrderInput, UpdateOrderInput, OrderItem } from './orders.types';
 
 export class OrdersService {
   /**
