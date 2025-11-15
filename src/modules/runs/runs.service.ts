@@ -4,8 +4,7 @@ import { AppError } from '@/middleware/errorHandler';
 import { DeliveryRun, RunStatus, Prisma } from '@prisma/client';
 import { optimizationService } from '@/services/mapbox';
 import type { OptimizationSolution } from '@/services/mapbox';
-import { MAX_PAGINATION_LIMIT, DEFAULT_PAGINATION_LIMIT } from '@/constants/pagination';
-import { DEFAULT_SERVICE_DURATION_SECONDS } from '@/constants/time';
+import { normalizePagination } from '@/utils/pagination';
 
 interface CreateRunInput {
   name: string;
@@ -107,10 +106,7 @@ export class RunsService {
     page?: number;
     limit?: number;
   }) {
-    const page = params.page || 1;
-    // Cap limit at MAX_PAGINATION_LIMIT to prevent abuse
-    const limit = Math.min(params.limit || DEFAULT_PAGINATION_LIMIT, MAX_PAGINATION_LIMIT);
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePagination(params);
 
     const where: Prisma.DeliveryRunWhereInput = {
       ...(params.status && { status: params.status }),
