@@ -96,13 +96,11 @@ Or start individual services if using a monorepo structure. Services will listen
 
 ## Additional Documentation
 
-This repository accompanies two documents that provide further guidance:
+This repository includes comprehensive documentation:
 
-- **MVP Plan (with Mapbox integration)** – outlines the project's vision, technology choices and high-level design for building the platform. It also compares open-source routing tools with Mapbox and explains how the system evolves over time.
+- **[MVP Plan](./mvp_plan_updated.md)** – outlines the project's vision, technology choices and high-level design for building the platform. It also compares open-source routing tools with Mapbox and explains how the system evolves over time.
 
-- **Documentation Checklist** – lists the technical documentation that should be produced for each microservice (API specs, data models, deployment steps, etc.).
-
-You can obtain these documents from the previous chat attachments (`mvp_plan_updated.md` and `documentation_checklist.md`). They are not included in the repository by default.
+- **Documentation Checklist** – lists the technical documentation that should be produced for each microservice (API specs, data models, deployment steps, etc.). See the checklist section in the MVP plan document.
 
 ## Contributing
 
