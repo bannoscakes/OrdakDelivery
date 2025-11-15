@@ -10,7 +10,11 @@ import { errorHandler, notFoundHandler } from '@/middleware/errorHandler';
 
 // Routes
 import ordersRouter from '@/modules/orders/orders.routes';
+import shopifyRouter from '@/modules/orders/shopify.routes';
 import geocodingRouter from '@/modules/geocoding/geocoding.routes';
+import driversRouter from '@/modules/drivers/drivers.routes';
+import vehiclesRouter from '@/modules/vehicles/vehicles.routes';
+import runsRouter from '@/modules/runs/runs.routes';
 
 const createApp = (): Application => {
   const app = express();
@@ -51,8 +55,12 @@ const createApp = (): Application => {
   // Routes
   app.use(`${apiPrefix}/orders`, ordersRouter);
   app.use(`${apiPrefix}/geocoding`, geocodingRouter);
-  // app.use(`${apiPrefix}/routing`, routingRouter);
-  // app.use(`${apiPrefix}/runs`, runsRouter);
+  app.use(`${apiPrefix}/drivers`, driversRouter);
+  app.use(`${apiPrefix}/vehicles`, vehiclesRouter);
+  app.use(`${apiPrefix}/runs`, runsRouter);
+
+  // Webhooks (no auth required - verified by HMAC)
+  app.use(`${apiPrefix}/webhooks/shopify`, shopifyRouter);
 
   // Catch 404
   app.use(notFoundHandler);
