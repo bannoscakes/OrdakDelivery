@@ -1,7 +1,7 @@
 import { geocodingClient } from './client';
 import type { GeocodingResult, Coordinates } from './types';
 import logger from '@config/logger';
-import { AppError } from '@/middleware/errorHandler';
+import { AppError, createAppError } from '@/middleware/errorHandler';
 
 export class MapboxGeocodingService {
   /**
@@ -74,7 +74,7 @@ export class MapboxGeocodingService {
         throw error;
       }
       logger.error('Geocoding failed', { address, error });
-      throw new AppError(500, 'Failed to geocode address');
+      throw createAppError(500, 'Failed to geocode address', error);
     }
   }
 
@@ -147,7 +147,7 @@ export class MapboxGeocodingService {
         throw error;
       }
       logger.error('Reverse geocoding failed', { coordinates, error });
-      throw new AppError(500, 'Failed to reverse geocode coordinates');
+      throw createAppError(500, 'Failed to reverse geocode coordinates', error);
     }
   }
 }

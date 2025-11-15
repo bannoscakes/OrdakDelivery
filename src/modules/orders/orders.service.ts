@@ -1,14 +1,17 @@
 import prisma from '@config/database';
 import logger from '@config/logger';
-import { AppError } from '@/middleware/errorHandler';
-import geocodingService from '@/modules/geocoding/geocoding.service';
+import { AppError, createAppError } from '@/middleware/errorHandler';
 import { Order, OrderType, OrderStatus, Prisma } from '@prisma/client';
 import type { CreateOrderInput, UpdateOrderInput, OrderItem } from './orders.types';
-import { normalizePagination } from '@/utils/pagination';
+import { MAX_PAGINATION_LIMIT, DEFAULT_PAGINATION_LIMIT } from '@/constants/pagination';
+import { geocodeAddressToWKT } from '@/utils/geocoding';
 
 export class OrdersService {
   /**
    * Create a new order with automatic geocoding
+   * @param input - Order creation data including customer, address, and items
+   * @returns Promise resolving to the created order
+   * @throws {AppError} If order creation fails
    */
   async createOrder(input: CreateOrderInput): Promise<Order> {
     try {
@@ -32,28 +35,10 @@ export class OrdersService {
 
       // Geocode address
       const fullAddress = `${input.address.line1}, ${input.address.city}, ${input.address.province} ${input.address.postalCode}, ${input.address.country || 'CA'}`;
-
-      let geocoded = false;
-      let locationWKT: string | undefined;
-
-      try {
-        const geocodeResult = await geocodingService.geocodeAddress(fullAddress, {
-          country: input.address.country || 'CA',
-        });
-
-        // Create WKT Point for PostGIS
-        // Format: POINT(longitude latitude)
-        locationWKT = `POINT(${geocodeResult.coordinates.longitude} ${geocodeResult.coordinates.latitude})`;
-        geocoded = true;
-
-        logger.info('Order address geocoded', {
-          address: fullAddress,
-          coordinates: geocodeResult.coordinates,
-        });
-      } catch (error) {
-        logger.warn('Failed to geocode order address', { address: fullAddress, error });
-        // Continue without geocoding - can be done later
-      }
+      const { locationWKT, geocoded } = await geocodeAddressToWKT(
+        fullAddress,
+        input.address.country || 'CA'
+      );
 
       // Create order
       const order = await prisma.order.create({
@@ -90,12 +75,15 @@ export class OrdersService {
       return order;
     } catch (error) {
       logger.error('Failed to create order', { input, error });
-      throw new AppError(500, 'Failed to create order');
+      throw createAppError(500, 'Failed to create order', error);
     }
   }
 
   /**
    * Get order by ID
+   * @param id - Order ID
+   * @returns Promise resolving to the order
+   * @throws {AppError} 404 if order not found
    */
   async getOrderById(id: string): Promise<Order> {
     const order = await prisma.order.findUnique({
@@ -120,6 +108,14 @@ export class OrdersService {
 
   /**
    * List orders with filters and pagination
+   * @param params - Filter and pagination parameters
+   * @param params.status - Filter by order status
+   * @param params.type - Filter by order type
+   * @param params.scheduledAfter - Filter orders scheduled after this date
+   * @param params.scheduledBefore - Filter orders scheduled before this date
+   * @param params.page - Page number (default: 1)
+   * @param params.limit - Items per page (default: 20, max: 100)
+   * @returns Promise resolving to paginated orders list
    */
   async listOrders(params: {
     status?: OrderStatus;

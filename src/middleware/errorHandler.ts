@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import logger from '@config/logger';
+import env from '@config/env';
 
 export class AppError extends Error {
   constructor(
@@ -13,6 +14,24 @@ export class AppError extends Error {
     Error.captureStackTrace(this, this.constructor);
   }
 }
+
+/**
+ * Create an AppError with detailed message in development, generic in production
+ * @param statusCode - HTTP status code
+ * @param productionMessage - Safe message for production
+ * @param error - Original error (message will be included in dev mode)
+ */
+export const createAppError = (
+  statusCode: number,
+  productionMessage: string,
+  error?: unknown
+): AppError => {
+  if (env.NODE_ENV === 'development' && error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return new AppError(statusCode, `${productionMessage}: ${errorMessage}`);
+  }
+  return new AppError(statusCode, productionMessage);
+};
 
 export const errorHandler = (
   err: Error | AppError | ZodError,

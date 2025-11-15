@@ -38,6 +38,14 @@ const listDriversSchema = z.object({
   }),
 });
 
+const getAvailableDriversSchema = z.object({
+  query: z.object({
+    date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+      message: 'Invalid date format',
+    }),
+  }),
+});
+
 export const createDriver = asyncHandler(async (req: Request, res: Response) => {
   const { body } = createDriverSchema.parse({ body: req.body });
 
@@ -51,8 +59,9 @@ export const createDriver = asyncHandler(async (req: Request, res: Response) => 
 
 export const getDriver = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
+  const includeRuns = req.query.includeRuns === 'true';
 
-  const driver = await driversService.getDriverById(id);
+  const driver = await driversService.getDriverById(id, includeRuns);
 
   res.status(200).json({
     success: true,
@@ -93,17 +102,9 @@ export const deleteDriver = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const getAvailableDrivers = asyncHandler(async (req: Request, res: Response) => {
-  const { date } = req.query;
+  const { query } = getAvailableDriversSchema.parse({ query: req.query });
 
-  if (!date || typeof date !== 'string') {
-    res.status(400).json({
-      success: false,
-      message: 'Date query parameter required',
-    });
-    return;
-  }
-
-  const drivers = await driversService.getAvailableDrivers(new Date(date));
+  const drivers = await driversService.getAvailableDrivers(new Date(query.date));
 
   res.status(200).json({
     success: true,

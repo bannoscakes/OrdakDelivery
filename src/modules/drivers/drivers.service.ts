@@ -2,7 +2,9 @@ import prisma from '@config/database';
 import logger from '@config/logger';
 import { AppError } from '@/middleware/errorHandler';
 import { Driver, DriverStatus, Prisma } from '@prisma/client';
-import { normalizePagination } from '@/utils/pagination';
+import { MAX_PAGINATION_LIMIT, DEFAULT_PAGINATION_LIMIT } from '@/constants/pagination';
+import { getBusyResourceIds } from '@/utils/availability';
+import { MS_PER_WEEK } from '@/constants/time';
 
 interface CreateDriverInput {
   email: string;
@@ -29,6 +31,9 @@ interface UpdateDriverInput {
 export class DriversService {
   /**
    * Create a new driver
+   * @param input - Driver creation data including name, email, phone, and license
+   * @returns Promise resolving to the created driver
+   * @throws {AppError} If email is already in use or creation fails
    */
   async createDriver(input: CreateDriverInput): Promise<Driver> {
     try {
@@ -69,21 +74,25 @@ export class DriversService {
 
   /**
    * Get driver by ID
+   * @param id - Driver ID
+   * @param includeRuns - Whether to include recent delivery runs (default: false)
    */
-  async getDriverById(id: string): Promise<Driver> {
+  async getDriverById(id: string, includeRuns: boolean = false): Promise<Driver> {
     const driver = await prisma.driver.findUnique({
       where: { id },
-      include: {
-        deliveryRuns: {
-          where: {
-            scheduledDate: {
-              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
+      include: includeRuns
+        ? {
+            deliveryRuns: {
+              where: {
+                scheduledDate: {
+                  gte: new Date(Date.now() - MS_PER_WEEK), // Last 7 days
+                },
+              },
+              orderBy: { scheduledDate: 'desc' },
+              take: 10,
             },
-          },
-          orderBy: { scheduledDate: 'desc' },
-          take: 10,
-        },
-      },
+          }
+        : undefined,
     });
 
     if (!driver) {
@@ -97,7 +106,10 @@ export class DriversService {
    * List drivers with filters
    */
   async listDrivers(params: { status?: DriverStatus; page?: number; limit?: number }) {
-    const { page, limit, skip } = normalizePagination(params);
+    const page = params.page || 1;
+    // Cap limit at MAX_PAGINATION_LIMIT to prevent abuse
+    const limit = Math.min(params.limit || DEFAULT_PAGINATION_LIMIT, MAX_PAGINATION_LIMIT);
+    const skip = (page - 1) * limit;
 
     const where: Prisma.DriverWhereInput = {
       ...(params.status && { status: params.status }),
@@ -165,28 +177,12 @@ export class DriversService {
 
   /**
    * Get available drivers for a specific date/time
+   * Returns drivers who are active and don't have a run scheduled for the given date
+   * @param date - Date to check availability for
+   * @returns Promise resolving to list of available drivers
    */
   async getAvailableDrivers(date: Date): Promise<Driver[]> {
-    // Get drivers who don't have a run scheduled for this date
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const driversWithRuns = await prisma.deliveryRun.findMany({
-      where: {
-        scheduledDate: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-      },
-      select: { driverId: true },
-    });
-
-    const busyDriverIds = driversWithRuns
-      .map((run) => run.driverId)
-      .filter((id): id is string => id !== null);
+    const busyDriverIds = await getBusyResourceIds(date, 'driver');
 
     return prisma.driver.findMany({
       where: {

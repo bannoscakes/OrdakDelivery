@@ -1,6 +1,6 @@
 import env from '@config/env';
 import logger from '@config/logger';
-import { AppError } from '@/middleware/errorHandler';
+import { AppError, createAppError } from '@/middleware/errorHandler';
 import type {
   OptimizationRequest,
   OptimizationSolution,
@@ -12,6 +12,14 @@ import { MAPBOX_OPTIMIZATION_BASE_URL } from './client';
 export class MapboxOptimizationService {
   /**
    * Submit optimization job to Mapbox Optimization API v2
+   *
+   * NOTE: Mapbox API authentication requires access_token in URL query parameter.
+   * This is Mapbox's standard authentication method - they do not support header-based auth.
+   * Security considerations:
+   * - Tokens may appear in server access logs
+   * - Mitigation: Ensure web server logging is configured to redact query parameters
+   * - Mitigation: Use HTTPS for all requests (token encrypted in transit)
+   * - Mitigation: Rotate tokens periodically and use environment-specific tokens
    */
   async optimize(request: OptimizationRequest): Promise<OptimizationSolution> {
     try {
@@ -23,6 +31,7 @@ export class MapboxOptimizationService {
         throw new AppError(400, 'At least one service (stop) required');
       }
 
+      // Mapbox requires access_token as query parameter (no header auth available)
       const url = `${MAPBOX_OPTIMIZATION_BASE_URL}?access_token=${env.MAPBOX_ACCESS_TOKEN}`;
 
       logger.info('Submitting optimization request', {
@@ -69,7 +78,7 @@ export class MapboxOptimizationService {
         throw error;
       }
       logger.error('Optimization service error', error);
-      throw new AppError(500, 'Failed to optimize route');
+      throw createAppError(500, 'Failed to optimize route', error);
     }
   }
 
