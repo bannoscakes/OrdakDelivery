@@ -1,7 +1,7 @@
 import prisma from '@config/database';
 import logger from '@config/logger';
 import { AppError } from '@/middleware/errorHandler';
-import { DeliveryRun, RunStatus, Prisma } from '@prisma/client';
+import { DeliveryRun, RunStatus, Prisma, Order } from '@prisma/client';
 import { optimizationService } from '@/services/mapbox';
 import type { OptimizationSolution } from '@/services/mapbox';
 import { normalizePagination } from '@/utils/pagination';
@@ -251,7 +251,24 @@ export class RunsService {
    * Extract order locations from PostGIS for optimization
    * @private
    */
-  private async extractOrderLocations(orders: any[]) {
+  private async extractOrderLocations(
+    orders: Array<Pick<Order, 'id' | 'orderNumber' | 'timeWindowStart' | 'timeWindowEnd'>>
+  ) {
+    // Validate orders array is not empty
+    if (!orders || orders.length === 0) {
+      throw new AppError(400, 'Cannot extract locations from empty orders array');
+    }
+
+    // Validate each order has required fields
+    orders.forEach((order, index) => {
+      if (!order.id) {
+        throw new AppError(400, `Order at index ${index} missing required field: id`);
+      }
+      if (!order.orderNumber) {
+        throw new AppError(400, `Order ${order.id} missing required field: orderNumber`);
+      }
+    });
+
     return Promise.all(
       orders.map(async (order) => {
         // Query location from PostGIS
