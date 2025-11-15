@@ -8,6 +8,7 @@ declare global {
         email: string;
         role: string;
       };
+      rawBody?: Buffer;
     }
   }
 }

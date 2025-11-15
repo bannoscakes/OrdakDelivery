@@ -17,7 +17,7 @@ export const verifyShopifyWebhook = (req: Request): boolean => {
 
   // Use raw body buffer if available, otherwise fall back to stringified JSON
   // Note: For proper verification, webhook endpoint should use express.raw()
-  const body = (req as any).rawBody || Buffer.from(JSON.stringify(req.body), 'utf8');
+  const body = req.rawBody || Buffer.from(JSON.stringify(req.body), 'utf8');
 
   if (!Buffer.isBuffer(body)) {
     logger.error('Webhook body is not a buffer - HMAC verification may fail');

@@ -11,7 +11,7 @@ export const preserveRawBody = (
   next: NextFunction
 ): void => {
   json({
-    verify: (req: any, res, buf, encoding) => {
+    verify: (req: Request, res, buf, encoding) => {
       // Store raw body buffer for HMAC verification
       req.rawBody = buf;
     },
