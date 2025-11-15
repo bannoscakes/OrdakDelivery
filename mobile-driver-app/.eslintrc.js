@@ -7,5 +7,6 @@ module.exports = {
     'react-native/no-inline-styles': 'warn',
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     'no-console': ['warn', { allow: ['warn', 'error'] }],
+    '@typescript-eslint/func-call-spacing': 'off', // Deprecated rule
   },
 };

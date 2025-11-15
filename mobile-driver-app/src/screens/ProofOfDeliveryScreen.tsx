@@ -9,8 +9,6 @@ import {
   Alert,
   ActivityIndicator,
   Image,
-  Platform,
-  Linking,
   Modal,
 } from 'react-native';
 import SignatureCanvas from 'react-native-signature-canvas';
@@ -656,7 +654,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 24,
     width: '85%',
-    padding: 20,
   },
   failureModalContent: {
     backgroundColor: '#fff',
@@ -667,7 +664,6 @@ const styles = StyleSheet.create({
   },
   failureModalTitle: {
     fontSize: 20,
-    fontWeight: '600',
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 8,
@@ -687,6 +683,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     minHeight: 100,
     marginBottom: 20,
+  },
   failureReasonInput: {
     height: 100,
     marginBottom: 16,
@@ -715,6 +712,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f44336',
   },
   submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   confirmFailButton: {
     backgroundColor: '#f44336',
   },

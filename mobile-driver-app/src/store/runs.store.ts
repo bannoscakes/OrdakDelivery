@@ -1,7 +1,6 @@
 import { create } from 'zustand';
-import { DeliveryRun, Order, Location } from '@/types';
+import { DeliveryRun, Location } from '@/types';
 import { runsService } from '@/services/runs.service';
-import { ordersService } from '@/services/orders.service';
 
 interface RunsState {
   runs: DeliveryRun[];
@@ -118,7 +117,7 @@ export const useRunsStore = create<RunsState>((set, get) => ({
 
   refreshCurrentRun: async () => {
     const { currentRun } = get();
-    if (!currentRun) return;
+    if (!currentRun) {return;}
 
     try {
       const refreshedRun = await runsService.getRun(currentRun.id);

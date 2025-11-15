@@ -1,11 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Alert,
-  Dimensions,
   Platform,
   Linking,
 } from 'react-native';
@@ -13,13 +12,10 @@ import MapboxGL from '@rnmapbox/maps';
 import Config from 'react-native-config';
 import { useRunsStore } from '@/store/runs.store';
 import { locationService } from '@/services/location.service';
-import { ordersService } from '@/services/orders.service';
-import { Order, Location } from '@/types';
+import { Location } from '@/types';
 
 // Initialize Mapbox
 MapboxGL.setAccessToken(Config.MAPBOX_ACCESS_TOKEN || '');
-
-const { width, height } = Dimensions.get('window');
 
 interface NavigationScreenProps {
   navigation: any;
@@ -32,12 +28,9 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
     currentRun,
     currentOrderIndex,
     moveToNextOrder,
-    moveToPreviousOrder,
     updateCurrentLocation,
     currentLocation,
   } = useRunsStore();
-
-  const [isTracking, setIsTracking] = useState(false);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const mapRef = useRef<MapboxGL.MapView>(null);
 
@@ -48,16 +41,16 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
     return () => {
       locationService.stopTracking();
     };
-  }, []);
+  }, [startLocationTracking]);
 
   useEffect(() => {
     if (currentLocation && currentOrder) {
       // Center map on current location
       centerOnCurrentLocation();
     }
-  }, [currentLocation]);
+  }, [currentLocation, currentOrder, centerOnCurrentLocation]);
 
-  const startLocationTracking = async () => {
+  const startLocationTracking = useCallback(async () => {
     const hasPermission = await locationService.requestPermissions();
     if (!hasPermission) {
       Alert.alert('Permission Required', 'Location permission is required for navigation');
@@ -66,16 +59,15 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
 
     locationService.startTracking((location: Location) => {
       updateCurrentLocation(location);
-      setIsTracking(true);
 
       // Send location to server
       if (runId) {
         locationService.sendLocationUpdate(location, runId);
       }
     });
-  };
+  }, [runId, updateCurrentLocation]);
 
-  const centerOnCurrentLocation = () => {
+  const centerOnCurrentLocation = useCallback(() => {
     if (currentLocation && cameraRef.current) {
       cameraRef.current.setCamera({
         centerCoordinate: [currentLocation.longitude, currentLocation.latitude],
@@ -83,10 +75,10 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
         animationDuration: 1000,
       });
     }
-  };
+  }, [currentLocation]);
 
   const handleArrived = () => {
-    if (!currentOrder) return;
+    if (!currentOrder) {return;}
 
     navigation.navigate('ProofOfDelivery', {
       orderId: currentOrder.id,
@@ -116,7 +108,7 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
   };
 
   const openInMapsApp = () => {
-    if (!currentOrder?.location) return;
+    if (!currentOrder?.location) {return;}
 
     const { latitude, longitude } = currentOrder.location;
     const label = `${currentOrder.customer.firstName} ${currentOrder.customer.lastName}`;
@@ -174,7 +166,7 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
 
         {/* Delivery Stops */}
         {currentRun.orders.map((order, index) => {
-          if (!order.location) return null;
+          if (!order.location) {return null;}
 
           const isCurrentStop = index === currentOrderIndex;
           const isCompleted = ['DELIVERED', 'FAILED'].includes(order.status);
