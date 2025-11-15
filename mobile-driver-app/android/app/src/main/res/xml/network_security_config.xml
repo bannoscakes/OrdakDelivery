@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Production configuration - HTTPS only -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Allow cleartext only for development/testing -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Local development -->
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain> <!-- Android emulator host -->
+        <domain includeSubdomains="true">10.0.3.2</domain> <!-- Genymotion emulator -->
+
+        <!-- Add your development machine IP here if testing on physical device -->
+        <!-- <domain includeSubdomains="true">192.168.1.100</domain> -->
+    </domain-config>
+
+    <!-- For production, remove or comment out the domain-config above -->
+    <!-- and only use HTTPS endpoints -->
+</network-security-config>
