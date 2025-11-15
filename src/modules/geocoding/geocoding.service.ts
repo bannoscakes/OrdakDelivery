@@ -156,9 +156,19 @@ export class GeocodingService {
           country: options?.country,
         });
 
-        // Store in cache
-        await prisma.geocodingCache.create({
-          data: {
+        // Store in cache (use upsert to handle concurrent requests)
+        await prisma.geocodingCache.upsert({
+          where: {
+            address: normalizedAddress,
+          },
+          update: {
+            latitude: result.coordinates.latitude,
+            longitude: result.coordinates.longitude,
+            formattedAddress: result.formattedAddress,
+            confidence: result.confidence,
+            updatedAt: new Date(),
+          },
+          create: {
             address: normalizedAddress,
             latitude: result.coordinates.latitude,
             longitude: result.coordinates.longitude,
