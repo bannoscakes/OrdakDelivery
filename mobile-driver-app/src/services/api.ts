@@ -136,6 +136,10 @@ class ApiClient {
     ]);
   }
 
+  getBaseURL(): string {
+    return this.client.defaults.baseURL || API_BASE_URL;
+  }
+
   // Generic request methods
   async get<T>(url: string, params?: any): Promise<ApiResponse<T>> {
     return this.client.get(url, { params });
