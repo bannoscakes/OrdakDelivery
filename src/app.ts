@@ -8,8 +8,9 @@ import env from '@config/env';
 import { stream } from '@config/logger';
 import { errorHandler, notFoundHandler } from '@/middleware/errorHandler';
 
-// Routes will be imported here
-// import ordersRouter from '@/modules/orders/orders.routes';
+// Routes
+import ordersRouter from '@/modules/orders/orders.routes';
+import geocodingRouter from '@/modules/geocoding/geocoding.routes';
 
 const createApp = (): Application => {
   const app = express();
@@ -48,8 +49,8 @@ const createApp = (): Application => {
   const apiPrefix = `/api/${env.API_VERSION}`;
 
   // Routes
-  // app.use(`${apiPrefix}/orders`, ordersRouter);
-  // app.use(`${apiPrefix}/geocoding`, geocodingRouter);
+  app.use(`${apiPrefix}/orders`, ordersRouter);
+  app.use(`${apiPrefix}/geocoding`, geocodingRouter);
   // app.use(`${apiPrefix}/routing`, routingRouter);
   // app.use(`${apiPrefix}/runs`, runsRouter);
 
