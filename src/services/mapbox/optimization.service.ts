@@ -9,6 +9,8 @@ import type {
 } from './types';
 import { MAPBOX_OPTIMIZATION_BASE_URL } from './client';
 
+const REQUEST_TIMEOUT_MS = 60000; // 60 seconds for complex optimizations
+
 export class MapboxOptimizationService {
   /**
    * Submit optimization job to Mapbox Optimization API v2
@@ -39,40 +41,63 @@ export class MapboxOptimizationService {
         services: request.services.length,
       });
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...request,
-          options: {
-            geometry_format: 'geojson',
-            ...request.options,
+      // Set up timeout for fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        logger.error('Optimization request failed', {
-          status: response.status,
-          error: errorText,
+          body: JSON.stringify({
+            ...request,
+            options: {
+              geometry_format: 'geojson',
+              ...request.options,
+            },
+          }),
+          signal: controller.signal,
         });
-        throw new AppError(response.status, `Optimization failed: ${errorText}`);
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          logger.error('Optimization request failed', {
+            status: response.status,
+            error: errorText,
+          });
+          throw new AppError(response.status, `Optimization failed: ${errorText}`);
+        }
+
+        const solution: OptimizationSolution = await response.json();
+
+        logger.info('Optimization completed', {
+          code: solution.code,
+          routes: solution.routes.length,
+          unassigned: solution.unassigned.length,
+          distance: solution.summary.distance,
+          duration: solution.summary.duration,
+        });
+
+        return solution;
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+
+        // Handle timeout specifically
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          logger.error('Optimization request timed out', {
+            timeoutMs: REQUEST_TIMEOUT_MS,
+            vehicles: request.vehicles.length,
+            services: request.services.length,
+          });
+          throw new AppError(408, `Optimization request timed out after ${REQUEST_TIMEOUT_MS}ms`);
+        }
+
+        throw fetchError;
       }
-
-      const solution: OptimizationSolution = await response.json();
-
-      logger.info('Optimization completed', {
-        code: solution.code,
-        routes: solution.routes.length,
-        unassigned: solution.unassigned.length,
-        distance: solution.summary.distance,
-        duration: solution.summary.duration,
-      });
-
-      return solution;
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
