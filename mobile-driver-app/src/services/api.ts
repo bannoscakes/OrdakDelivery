@@ -16,6 +16,7 @@ const STORAGE_KEYS = {
 class ApiClient {
   private client: AxiosInstance;
   private refreshTokenPromise: Promise<string> | null = null;
+  private readonly MAX_RETRY_ATTEMPTS = 1;
 
   constructor() {
     this.client = axios.create({
@@ -56,14 +57,35 @@ class ApiClient {
 
           try {
             const newToken = await this.refreshAccessToken();
+
+            // Validate new token was obtained
+            if (!newToken || newToken.trim() === '') {
+              console.error('[ApiClient] Token refresh returned empty token');
+              await this.clearAuth();
+              throw new Error('Token refresh failed: invalid token received');
+            }
+
+            // Update request with new token
             if (originalRequest.headers) {
               originalRequest.headers.Authorization = `Bearer ${newToken}`;
             }
+
             return this.client(originalRequest);
           } catch (refreshError) {
-            // Refresh failed, logout user
+            // Log error details for debugging
+            console.error('[ApiClient] Token refresh failed:', {
+              message: refreshError instanceof Error ? refreshError.message : 'Unknown error',
+            });
+
+            // Clear auth and logout user
             await this.clearAuth();
-            throw refreshError;
+
+            // Throw user-friendly error
+            throw {
+              status: 'error',
+              statusCode: 401,
+              message: 'Session expired. Please login again.',
+            } as ApiError;
           }
         }
 
