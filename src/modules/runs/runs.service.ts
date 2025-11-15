@@ -257,11 +257,11 @@ export class RunsService {
       const stops = await Promise.all(
         run.orders.map(async (order) => {
           // Query location from PostGIS
-          const result = await prisma.$queryRaw<Array<{ lon: number; lat: number }>>`
-            SELECT ST_X(location::geometry) as lon, ST_Y(location::geometry) as lat
-            FROM orders
-            WHERE id = ${order.id} AND location IS NOT NULL
-          `;
+          const result = await prisma.$queryRaw<Array<{ lon: number; lat: number }>>(
+            Prisma.sql`SELECT ST_X(location::geometry) as lon, ST_Y(location::geometry) as lat
+                       FROM orders
+                       WHERE id = ${order.id} AND location IS NOT NULL`
+          );
 
           if (!result[0]) {
             throw new AppError(400, `Order ${order.orderNumber} is not geocoded`);
