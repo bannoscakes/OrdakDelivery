@@ -7,6 +7,8 @@ import 'express-async-errors';
 import env from '@config/env';
 import { stream } from '@config/logger';
 import { errorHandler, notFoundHandler } from '@/middleware/errorHandler';
+import { apiRateLimiter, webhookRateLimiter } from '@/middleware/rateLimiter';
+import { preserveRawBody } from '@/middleware/rawBody';
 
 // Routes
 import ordersRouter from '@/modules/orders/orders.routes';
@@ -28,8 +30,8 @@ const createApp = (): Application => {
     })
   );
 
-  // Body parsing
-  app.use(express.json({ limit: '10mb' }));
+  // Body parsing - use preserveRawBody for webhook HMAC verification
+  app.use(preserveRawBody);
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   // Logging
@@ -52,6 +54,9 @@ const createApp = (): Application => {
   // API version prefix
   const apiPrefix = `/api/${env.API_VERSION}`;
 
+  // Apply rate limiting to all API routes
+  app.use(`${apiPrefix}/`, apiRateLimiter);
+
   // Routes
   app.use(`${apiPrefix}/orders`, ordersRouter);
   app.use(`${apiPrefix}/geocoding`, geocodingRouter);
@@ -59,8 +64,8 @@ const createApp = (): Application => {
   app.use(`${apiPrefix}/vehicles`, vehiclesRouter);
   app.use(`${apiPrefix}/runs`, runsRouter);
 
-  // Webhooks (no auth required - verified by HMAC)
-  app.use(`${apiPrefix}/webhooks/shopify`, shopifyRouter);
+  // Webhooks (no auth required - verified by HMAC, separate rate limiter)
+  app.use(`${apiPrefix}/webhooks/shopify`, webhookRateLimiter, shopifyRouter);
 
   // Catch 404
   app.use(notFoundHandler);

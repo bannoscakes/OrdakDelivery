@@ -186,29 +186,32 @@ export class RunsService {
 
   /**
    * Assign orders to a run
+   * Uses transaction to ensure data consistency
    */
   async assignOrders(runId: string, orderIds: string[]): Promise<void> {
-    // Update orders to assign them to the run
-    await prisma.order.updateMany({
-      where: {
-        id: { in: orderIds },
-      },
-      data: {
-        assignedRunId: runId,
-        status: 'ASSIGNED',
-      },
+    await prisma.$transaction(async (tx) => {
+      // Update orders to assign them to the run
+      await tx.order.updateMany({
+        where: {
+          id: { in: orderIds },
+        },
+        data: {
+          assignedRunId: runId,
+          status: 'ASSIGNED',
+        },
+      });
+
+      // Update run statistics
+      const orderCount = orderIds.length;
+      await tx.deliveryRun.update({
+        where: { id: runId },
+        data: {
+          totalStops: orderCount,
+        },
+      });
     });
 
-    // Update run statistics
-    const orderCount = orderIds.length;
-    await prisma.deliveryRun.update({
-      where: { id: runId },
-      data: {
-        totalStops: orderCount,
-      },
-    });
-
-    logger.info('Orders assigned to run', { runId, orderCount });
+    logger.info('Orders assigned to run', { runId, orderCount: orderIds.length });
   }
 
   /**
@@ -314,6 +317,7 @@ export class RunsService {
 
   /**
    * Apply optimization solution to run
+   * Uses transaction to ensure data consistency across run and order updates
    */
   private async applySolution(runId: string, solution: OptimizationSolution) {
     if (solution.routes.length === 0) {
@@ -326,33 +330,36 @@ export class RunsService {
       throw new AppError(400, 'Invalid optimization solution');
     }
 
-    // Update run with route data
-    await prisma.deliveryRun.update({
-      where: { id: runId },
-      data: {
-        routeGeometry: route.geometry as Prisma.InputJsonValue,
-        totalDistance: route.distance,
-        totalDuration: route.duration,
-        optimizedAt: new Date(),
-        status: RunStatus.PLANNED,
-      },
-    });
+    // Wrap all updates in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Update run with route data
+      await tx.deliveryRun.update({
+        where: { id: runId },
+        data: {
+          routeGeometry: route.geometry as Prisma.InputJsonValue,
+          totalDistance: route.distance,
+          totalDuration: route.duration,
+          optimizedAt: new Date(),
+          status: RunStatus.PLANNED,
+        },
+      });
 
-    // Update order sequence based on optimization
-    const serviceSteps = route.steps.filter((step) => step.type === 'service');
+      // Update order sequence based on optimization
+      const serviceSteps = route.steps.filter((step) => step.type === 'service');
 
-    for (let i = 0; i < serviceSteps.length; i++) {
-      const step = serviceSteps[i];
-      if (step && step.id) {
-        await prisma.order.update({
-          where: { id: step.id },
-          data: {
-            sequenceInRun: i + 1,
-            estimatedArrival: new Date(step.arrival * 1000),
-          },
-        });
+      for (let i = 0; i < serviceSteps.length; i++) {
+        const step = serviceSteps[i];
+        if (step && step.id) {
+          await tx.order.update({
+            where: { id: step.id },
+            data: {
+              sequenceInRun: i + 1,
+              estimatedArrival: new Date(step.arrival * 1000),
+            },
+          });
+        }
       }
-    }
+    });
   }
 
   /**

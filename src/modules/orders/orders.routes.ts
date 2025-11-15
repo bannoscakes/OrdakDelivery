@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import * as ordersController from './orders.controller';
+import { authenticate } from '@/middleware/authenticate';
 
 const router = Router();
+
+// Apply authentication to all order routes
+router.use(authenticate);
 
 /**
  * @route   POST /api/v1/orders

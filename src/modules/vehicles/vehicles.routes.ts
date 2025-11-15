@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import * as vehiclesController from './vehicles.controller';
+import { authenticate } from '@/middleware/authenticate';
 
 const router = Router();
+
+// Apply authentication to all vehicle routes
+router.use(authenticate);
 
 /**
  * @route   POST /api/v1/vehicles
