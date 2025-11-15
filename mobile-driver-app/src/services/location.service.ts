@@ -147,7 +147,8 @@ class LocationService {
    * Configure background location tracking
    */
   async configureBackgroundTracking(runId: string): Promise<void> {
-    await BackgroundGeolocation.ready({
+    try {
+      await BackgroundGeolocation.ready({
       desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_HIGH,
       distanceFilter: 10,
       stopTimeout: 5,
@@ -175,6 +176,17 @@ class LocationService {
         channelName: 'Delivery Tracking',
       },
     });
+    } catch (error) {
+      console.error('[LocationService] Failed to configure background tracking:', {
+        runId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw new Error(
+        `Failed to configure background location tracking: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
+    }
   }
 
   /**
