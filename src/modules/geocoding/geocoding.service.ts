@@ -5,10 +5,21 @@ import { geocodingService as mapboxGeocodingService } from '@/services/mapbox';
 import type { Coordinates } from '@/services/mapbox';
 import { GeocodingProvider } from '@prisma/client';
 
+// Rate limiting configuration
+const GEOCODING_DELAY_MS = 1000; // 1 second delay between API calls
+const MAX_CONCURRENT_REQUESTS = 1; // Process sequentially to avoid rate limits
+
 interface GeocodeResult {
   coordinates: Coordinates;
   formattedAddress: string;
   cached: boolean;
+}
+
+/**
+ * Sleep for specified milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export class GeocodingService {
@@ -133,8 +144,8 @@ export class GeocodingService {
       ])
     );
 
-    // Process addresses sequentially to avoid rate limiting
-    // In production, consider implementing a queue system
+    // Process addresses sequentially with rate limiting to avoid API throttling
+    // Each API call is delayed by GEOCODING_DELAY_MS to respect rate limits
     for (let i = 0; i < addresses.length; i++) {
       const address = addresses[i];
       const normalizedAddress = normalizedAddresses[i];
@@ -188,6 +199,11 @@ export class GeocodingService {
           formattedAddress: result.formattedAddress,
           cached: false,
         });
+
+        // Rate limiting: delay before next API call
+        if (i < addresses.length - 1) {
+          await sleep(GEOCODING_DELAY_MS);
+        }
       } catch (error) {
         logger.error('Failed to geocode address in batch', { address, error });
         // Continue with other addresses
