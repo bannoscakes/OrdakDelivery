@@ -93,8 +93,11 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
     }
   };
 
-  const handleMapPan = () => {
-    setUserHasPanned(true);
+  const handleCameraChanged = (event: any) => {
+    // Only mark as user panned if it was actually a gesture
+    if (event?.gestures?.isGestureActive) {
+      setUserHasPanned(true);
+    }
   };
 
   const handleArrived = () => {
@@ -161,7 +164,7 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
         ref={mapRef}
         style={styles.map}
         styleURL={Config.MAPBOX_STYLE_URL || MapboxGL.StyleURL.Street}
-        onCameraChanged={handleMapPan}>
+        onCameraChanged={handleCameraChanged}>
         <MapboxGL.Camera
           ref={cameraRef}
           zoomLevel={13}
