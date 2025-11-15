@@ -9,6 +9,9 @@ import { geocodeAddressToWKT } from '@/utils/geocoding';
 export class OrdersService {
   /**
    * Create a new order with automatic geocoding
+   * @param input - Order creation data including customer, address, and items
+   * @returns Promise resolving to the created order
+   * @throws {AppError} If order creation fails
    */
   async createOrder(input: CreateOrderInput): Promise<Order> {
     try {
@@ -78,6 +81,9 @@ export class OrdersService {
 
   /**
    * Get order by ID
+   * @param id - Order ID
+   * @returns Promise resolving to the order
+   * @throws {AppError} 404 if order not found
    */
   async getOrderById(id: string): Promise<Order> {
     const order = await prisma.order.findUnique({
@@ -102,6 +108,14 @@ export class OrdersService {
 
   /**
    * List orders with filters and pagination
+   * @param params - Filter and pagination parameters
+   * @param params.status - Filter by order status
+   * @param params.type - Filter by order type
+   * @param params.scheduledAfter - Filter orders scheduled after this date
+   * @param params.scheduledBefore - Filter orders scheduled before this date
+   * @param params.page - Page number (default: 1)
+   * @param params.limit - Items per page (default: 20, max: 100)
+   * @returns Promise resolving to paginated orders list
    */
   async listOrders(params: {
     status?: OrderStatus;

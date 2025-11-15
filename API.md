@@ -4,9 +4,95 @@ Base URL: `http://localhost:3000/api/v1`
 
 ## Authentication
 
-Currently, all endpoints except webhooks are public. Authentication middleware will be added in future updates.
+All API endpoints require JWT authentication via Bearer token, except:
+- Health check endpoint (`/health`)
+- Shopify webhooks (authenticated via HMAC signature)
 
-Shopify webhooks are authenticated via HMAC signature verification.
+Include the JWT token in the Authorization header:
+```http
+Authorization: Bearer <your-jwt-token>
+```
+
+---
+
+## Error Responses
+
+All errors follow a consistent format:
+
+### Common Error Codes
+
+#### 400 Bad Request
+Invalid input data or validation errors.
+
+```json
+{
+  "status": "error",
+  "statusCode": 400,
+  "message": "Validation Error",
+  "errors": [
+    {
+      "path": "body.email",
+      "message": "Invalid email"
+    }
+  ]
+}
+```
+
+#### 401 Unauthorized
+Missing or invalid authentication token.
+
+```json
+{
+  "status": "error",
+  "statusCode": 401,
+  "message": "Unauthorized - Invalid or missing token"
+}
+```
+
+#### 404 Not Found
+Resource not found.
+
+```json
+{
+  "status": "error",
+  "statusCode": 404,
+  "message": "Order not found"
+}
+```
+
+#### 409 Conflict
+Resource conflict (e.g., duplicate email).
+
+```json
+{
+  "status": "error",
+  "statusCode": 409,
+  "message": "Driver with this email already exists"
+}
+```
+
+#### 429 Too Many Requests
+Rate limit exceeded.
+
+```json
+{
+  "status": "error",
+  "statusCode": 429,
+  "message": "Too many requests, please try again later"
+}
+```
+
+#### 500 Internal Server Error
+Server error. In development mode, includes error details.
+
+```json
+{
+  "status": "error",
+  "statusCode": 500,
+  "message": "Internal Server Error",
+  "stack": "Error: ... (development only)"
+}
+```
 
 ---
 

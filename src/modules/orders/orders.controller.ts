@@ -81,6 +81,14 @@ const listOrdersSchema = z.object({
   }),
 });
 
+const getUnassignedOrdersSchema = z.object({
+  query: z.object({
+    date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+      message: 'Invalid date format',
+    }),
+  }),
+});
+
 export const createOrder = asyncHandler(async (req: Request, res: Response) => {
   const { body } = createOrderSchema.parse({ body: req.body });
 
@@ -136,17 +144,9 @@ export const deleteOrder = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const getUnassignedOrders = asyncHandler(async (req: Request, res: Response) => {
-  const { date } = req.query;
+  const { query } = getUnassignedOrdersSchema.parse({ query: req.query });
 
-  if (!date || typeof date !== 'string') {
-    res.status(400).json({
-      success: false,
-      message: 'Date query parameter required',
-    });
-    return;
-  }
-
-  const orders = await ordersService.getUnassignedOrders(new Date(date));
+  const orders = await ordersService.getUnassignedOrders(new Date(query.date));
 
   res.status(200).json({
     success: true,

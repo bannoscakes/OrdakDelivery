@@ -34,6 +34,9 @@ interface OptimizeRunInput {
 export class RunsService {
   /**
    * Create a new delivery run
+   * @param input - Run creation data including name, scheduled date, driver, and vehicle
+   * @returns Promise resolving to the created delivery run
+   * @throws {AppError} If run creation fails
    */
   async createRun(input: CreateRunInput): Promise<DeliveryRun> {
     try {
@@ -249,7 +252,47 @@ export class RunsService {
   }
 
   /**
+   * Extract order locations from PostGIS for optimization
+   * @private
+   */
+  private async extractOrderLocations(orders: any[]) {
+    return Promise.all(
+      orders.map(async (order) => {
+        // Query location from PostGIS
+        const result = await prisma.$queryRaw<Array<{ lon: number; lat: number }>>(
+          Prisma.sql`SELECT ST_X(location::geometry) as lon, ST_Y(location::geometry) as lat
+                     FROM orders
+                     WHERE id = ${order.id} AND location IS NOT NULL`
+        );
+
+        if (!result[0]) {
+          throw new AppError(400, `Order ${order.orderNumber} is not geocoded`);
+        }
+
+        return {
+          id: order.id,
+          location: [result[0].lon, result[0].lat] as [number, number],
+          serviceDuration: DEFAULT_SERVICE_DURATION_SECONDS,
+          ...(order.timeWindowStart &&
+            order.timeWindowEnd && {
+              timeWindow: [
+                Math.floor(order.timeWindowStart.getTime() / 1000),
+                Math.floor(order.timeWindowEnd.getTime() / 1000),
+              ] as [number, number],
+            }),
+        };
+      })
+    );
+  }
+
+  /**
    * Optimize run using Mapbox Optimization API
+   * Calculates optimal route for all orders in the run
+   * @param runId - ID of the run to optimize
+   * @param startLocation - Starting coordinates [longitude, latitude]
+   * @param endLocation - Optional ending coordinates [longitude, latitude]
+   * @returns Promise resolving to the optimization solution
+   * @throws {AppError} If run has no orders or optimization fails
    */
   async optimizeRun(runId: string, startLocation: [number, number], endLocation?: [number, number]) {
     try {
@@ -259,47 +302,20 @@ export class RunsService {
         throw new AppError(400, 'Cannot optimize run with no orders');
       }
 
-      // Extract order locations
-      const stops = await Promise.all(
-        run.orders.map(async (order) => {
-          // Query location from PostGIS
-          const result = await prisma.$queryRaw<Array<{ lon: number; lat: number }>>(
-            Prisma.sql`SELECT ST_X(location::geometry) as lon, ST_Y(location::geometry) as lat
-                       FROM orders
-                       WHERE id = ${order.id} AND location IS NOT NULL`
-          );
+      // Extract order locations from PostGIS
+      const stops = await this.extractOrderLocations(run.orders);
 
-          if (!result[0]) {
-            throw new AppError(400, `Order ${order.orderNumber} is not geocoded`);
-          }
-
-          return {
-            id: order.id,
-            location: [result[0].lon, result[0].lat] as [number, number],
-            serviceDuration: DEFAULT_SERVICE_DURATION_SECONDS,
-            ...(order.timeWindowStart &&
-              order.timeWindowEnd && {
-                timeWindow: [
-                  Math.floor(order.timeWindowStart.getTime() / 1000),
-                  Math.floor(order.timeWindowEnd.getTime() / 1000),
-                ] as [number, number],
-              }),
-          };
-        })
-      );
-
-      // Build optimization request
+      // Build and execute optimization request
       const optimizationRequest = optimizationService.buildOptimizationRequest({
         vehicleStartLocation: startLocation,
         vehicleEndLocation: endLocation,
         stops,
       });
 
-      // Call Mapbox Optimization API
       logger.info('Starting route optimization', { runId, stops: stops.length });
       const solution = await optimizationService.optimize(optimizationRequest);
 
-      // Process solution
+      // Apply optimization solution to database
       await this.applySolution(runId, solution);
 
       logger.info('Route optimization completed', {

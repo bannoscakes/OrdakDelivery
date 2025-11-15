@@ -31,6 +31,9 @@ interface UpdateDriverInput {
 export class DriversService {
   /**
    * Create a new driver
+   * @param input - Driver creation data including name, email, phone, and license
+   * @returns Promise resolving to the created driver
+   * @throws {AppError} If email is already in use or creation fails
    */
   async createDriver(input: CreateDriverInput): Promise<Driver> {
     try {
@@ -174,6 +177,9 @@ export class DriversService {
 
   /**
    * Get available drivers for a specific date/time
+   * Returns drivers who are active and don't have a run scheduled for the given date
+   * @param date - Date to check availability for
+   * @returns Promise resolving to list of available drivers
    */
   async getAvailableDrivers(date: Date): Promise<Driver[]> {
     const busyDriverIds = await getBusyResourceIds(date, 'driver');

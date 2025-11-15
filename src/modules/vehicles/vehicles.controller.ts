@@ -44,6 +44,14 @@ const listVehiclesSchema = z.object({
   }),
 });
 
+const getAvailableVehiclesSchema = z.object({
+  query: z.object({
+    date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+      message: 'Invalid date format',
+    }),
+  }),
+});
+
 export const createVehicle = asyncHandler(async (req: Request, res: Response) => {
   const { body } = createVehicleSchema.parse({ body: req.body });
 
@@ -100,17 +108,9 @@ export const deleteVehicle = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const getAvailableVehicles = asyncHandler(async (req: Request, res: Response) => {
-  const { date } = req.query;
+  const { query } = getAvailableVehiclesSchema.parse({ query: req.query });
 
-  if (!date || typeof date !== 'string') {
-    res.status(400).json({
-      success: false,
-      message: 'Date query parameter required',
-    });
-    return;
-  }
-
-  const vehicles = await vehiclesService.getAvailableVehicles(new Date(date));
+  const vehicles = await vehiclesService.getAvailableVehicles(new Date(query.date));
 
   res.status(200).json({
     success: true,
