@@ -1,9 +1,10 @@
 import prisma from '@config/database';
 import logger from '@config/logger';
-import { AppError } from '@/middleware/errorHandler';
-import geocodingService from '@/modules/geocoding/geocoding.service';
+import { AppError, createAppError } from '@/middleware/errorHandler';
 import { Order, OrderType, OrderStatus, Prisma } from '@prisma/client';
 import type { CreateOrderInput, UpdateOrderInput, OrderItem } from './orders.types';
+import { MAX_PAGINATION_LIMIT, DEFAULT_PAGINATION_LIMIT } from '@/constants/pagination';
+import { geocodeAddressToWKT } from '@/utils/geocoding';
 
 export class OrdersService {
   /**
@@ -31,28 +32,10 @@ export class OrdersService {
 
       // Geocode address
       const fullAddress = `${input.address.line1}, ${input.address.city}, ${input.address.province} ${input.address.postalCode}, ${input.address.country || 'CA'}`;
-
-      let geocoded = false;
-      let locationWKT: string | undefined;
-
-      try {
-        const geocodeResult = await geocodingService.geocodeAddress(fullAddress, {
-          country: input.address.country || 'CA',
-        });
-
-        // Create WKT Point for PostGIS
-        // Format: POINT(longitude latitude)
-        locationWKT = `POINT(${geocodeResult.coordinates.longitude} ${geocodeResult.coordinates.latitude})`;
-        geocoded = true;
-
-        logger.info('Order address geocoded', {
-          address: fullAddress,
-          coordinates: geocodeResult.coordinates,
-        });
-      } catch (error) {
-        logger.warn('Failed to geocode order address', { address: fullAddress, error });
-        // Continue without geocoding - can be done later
-      }
+      const { locationWKT, geocoded } = await geocodeAddressToWKT(
+        fullAddress,
+        input.address.country || 'CA'
+      );
 
       // Create order
       const order = await prisma.order.create({
@@ -89,7 +72,7 @@ export class OrdersService {
       return order;
     } catch (error) {
       logger.error('Failed to create order', { input, error });
-      throw new AppError(500, 'Failed to create order');
+      throw createAppError(500, 'Failed to create order', error);
     }
   }
 
@@ -129,7 +112,8 @@ export class OrdersService {
     limit?: number;
   }) {
     const page = params.page || 1;
-    const limit = params.limit || 20;
+    // Cap limit at MAX_PAGINATION_LIMIT to prevent abuse
+    const limit = Math.min(params.limit || DEFAULT_PAGINATION_LIMIT, MAX_PAGINATION_LIMIT);
     const skip = (page - 1) * limit;
 
     const where: Prisma.OrderWhereInput = {

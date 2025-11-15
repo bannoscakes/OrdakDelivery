@@ -2,6 +2,9 @@ import prisma from '@config/database';
 import logger from '@config/logger';
 import { AppError } from '@/middleware/errorHandler';
 import { Vehicle, VehicleType, Prisma } from '@prisma/client';
+import { MAX_PAGINATION_LIMIT, DEFAULT_PAGINATION_LIMIT } from '@/constants/pagination';
+import { getBusyResourceIds} from '@/utils/availability';
+import { MS_PER_WEEK } from '@/constants/time';
 
 interface CreateVehicleInput {
   licensePlate: string;
@@ -68,27 +71,31 @@ export class VehiclesService {
         throw error;
       }
       logger.error('Failed to create vehicle', { input, error });
-      throw new AppError(500, 'Failed to create vehicle');
+      throw createAppError(500, 'Failed to create vehicle', error);
     }
   }
 
   /**
    * Get vehicle by ID
+   * @param id - Vehicle ID
+   * @param includeRuns - Whether to include recent delivery runs (default: false)
    */
-  async getVehicleById(id: string): Promise<Vehicle> {
+  async getVehicleById(id: string, includeRuns: boolean = false): Promise<Vehicle> {
     const vehicle = await prisma.vehicle.findUnique({
       where: { id },
-      include: {
-        deliveryRuns: {
-          where: {
-            scheduledDate: {
-              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+      include: includeRuns
+        ? {
+            deliveryRuns: {
+              where: {
+                scheduledDate: {
+                  gte: new Date(Date.now() - MS_PER_WEEK),
+                },
+              },
+              orderBy: { scheduledDate: 'desc' },
+              take: 10,
             },
-          },
-          orderBy: { scheduledDate: 'desc' },
-          take: 10,
-        },
-      },
+          }
+        : undefined,
     });
 
     if (!vehicle) {
@@ -108,7 +115,8 @@ export class VehiclesService {
     limit?: number;
   }) {
     const page = params.page || 1;
-    const limit = params.limit || 20;
+    // Cap limit at MAX_PAGINATION_LIMIT to prevent abuse
+    const limit = Math.min(params.limit || DEFAULT_PAGINATION_LIMIT, MAX_PAGINATION_LIMIT);
     const skip = (page - 1) * limit;
 
     const where: Prisma.VehicleWhereInput = {
@@ -180,25 +188,7 @@ export class VehiclesService {
    * Get available vehicles for a specific date
    */
   async getAvailableVehicles(date: Date): Promise<Vehicle[]> {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const vehiclesWithRuns = await prisma.deliveryRun.findMany({
-      where: {
-        scheduledDate: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-      },
-      select: { vehicleId: true },
-    });
-
-    const busyVehicleIds = vehiclesWithRuns
-      .map((run) => run.vehicleId)
-      .filter((id): id is string => id !== null);
+    const busyVehicleIds = await getBusyResourceIds(date, 'vehicle');
 
     return prisma.vehicle.findMany({
       where: {

@@ -1,7 +1,7 @@
 import { directionsClient } from './client';
 import type { DirectionsWaypoint, DirectionsRoute, DirectionsOptions, Coordinates } from './types';
 import logger from '@config/logger';
-import { AppError } from '@/middleware/errorHandler';
+import { AppError, createAppError } from '@/middleware/errorHandler';
 
 export class MapboxDirectionsService {
   /**
@@ -63,7 +63,7 @@ export class MapboxDirectionsService {
         throw error;
       }
       logger.error('Directions request failed', { waypoints, error });
-      throw new AppError(500, 'Failed to calculate route');
+      throw createAppError(500, 'Failed to calculate route', error);
     }
   }
 

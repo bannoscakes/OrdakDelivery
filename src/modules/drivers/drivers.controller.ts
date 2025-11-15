@@ -51,8 +51,9 @@ export const createDriver = asyncHandler(async (req: Request, res: Response) => 
 
 export const getDriver = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
+  const includeRuns = req.query.includeRuns === 'true';
 
-  const driver = await driversService.getDriverById(id);
+  const driver = await driversService.getDriverById(id, includeRuns);
 
   res.status(200).json({
     success: true,

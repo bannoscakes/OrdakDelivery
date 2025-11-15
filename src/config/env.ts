@@ -50,7 +50,10 @@ const envSchema = z.object({
   // Security
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default('7d'),
-  CORS_ORIGIN: z.string().default('http://localhost:3001'),
+  CORS_ORIGIN: z
+    .string()
+    .default('http://localhost:3001')
+    .transform((val) => val.split(',').map((origin) => origin.trim())),
 
   // Logging
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),

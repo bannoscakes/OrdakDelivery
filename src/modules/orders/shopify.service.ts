@@ -1,8 +1,9 @@
 import prisma from '@config/database';
 import logger from '@config/logger';
 import { AppError } from '@/middleware/errorHandler';
-import geocodingService from '@/modules/geocoding/geocoding.service';
 import { OrderType, OrderStatus, Prisma } from '@prisma/client';
+import { geocodeAddressToWKT } from '@/utils/geocoding';
+import { MS_PER_DAY } from '@/constants/time';
 
 interface ShopifyAddress {
   address1: string;
@@ -104,25 +105,12 @@ export class ShopifyService {
 
       // Geocode address
       const fullAddress = `${address.address1}, ${address.city}, ${address.province} ${address.zip}, ${address.country_code}`;
-
-      let geocoded = false;
-      let locationWKT: string | undefined;
-
-      try {
-        const geocodeResult = await geocodingService.geocodeAddress(fullAddress, {
-          country: address.country_code,
-        });
-
-        locationWKT = `POINT(${geocodeResult.coordinates.longitude} ${geocodeResult.coordinates.latitude})`;
-        geocoded = true;
-      } catch (error) {
-        logger.warn('Failed to geocode Shopify order address', { address: fullAddress, error });
-      }
+      const { locationWKT, geocoded } = await geocodeAddressToWKT(fullAddress, address.country_code);
 
       // Parse delivery date
       const scheduledDate = deliveryDate
         ? new Date(deliveryDate)
-        : new Date(Date.now() + 24 * 60 * 60 * 1000); // Default to tomorrow
+        : new Date(Date.now() + MS_PER_DAY); // Default to tomorrow
 
       const timeWindowStart = deliveryTimeStart ? new Date(deliveryTimeStart) : undefined;
       const timeWindowEnd = deliveryTimeEnd ? new Date(deliveryTimeEnd) : undefined;

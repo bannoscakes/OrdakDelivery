@@ -57,8 +57,9 @@ export const createVehicle = asyncHandler(async (req: Request, res: Response) =>
 
 export const getVehicle = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
+  const includeRuns = req.query.includeRuns === 'true';
 
-  const vehicle = await vehiclesService.getVehicleById(id);
+  const vehicle = await vehiclesService.getVehicleById(id, includeRuns);
 
   res.status(200).json({
     success: true,

@@ -1,7 +1,7 @@
 import { matrixClient } from './client';
 import type { MatrixLocation, MatrixResult, Coordinates } from './types';
 import logger from '@config/logger';
-import { AppError } from '@/middleware/errorHandler';
+import { AppError, createAppError } from '@/middleware/errorHandler';
 
 export class MapboxMatrixService {
   /**
@@ -66,7 +66,7 @@ export class MapboxMatrixService {
         throw error;
       }
       logger.error('Matrix calculation failed', { locations: locations.length, error });
-      throw new AppError(500, 'Failed to calculate distance matrix');
+      throw createAppError(500, 'Failed to calculate distance matrix', error);
     }
   }
 

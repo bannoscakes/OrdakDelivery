@@ -1,9 +1,9 @@
 # Security & Code Quality Audit - Issue Tracker
 
 **Generated:** 2024-01-15
-**Last Updated:** 2024-11-15 (HIGH priority complete + 4 MEDIUM issues resolved)
-**Status:** ✅ All CRITICAL & HIGH issues RESOLVED | 🟢 MEDIUM priority in progress
-**Total Issues:** 31 (14 resolved, 17 remaining)
+**Last Updated:** 2024-11-15 (All CRITICAL, HIGH, and MEDIUM complete + 2 LOW issues resolved)
+**Status:** ✅ All CRITICAL, HIGH & MEDIUM issues RESOLVED | 🟢 LOW priority in progress
+**Total Issues:** 31 (26 resolved, 5 remaining)
 
 ---
 
@@ -186,72 +186,72 @@
 
 ### Security - Token Handling
 
-- [ ] **MEDIUM-005: Mapbox Token in URL Query Parameter**
-  - **File:** `src/services/mapbox/optimization.service.ts:26`
+- [x] **MEDIUM-005: Mapbox Token in URL Query Parameter** ✅ FIXED
+  - **File:** `src/services/mapbox/optimization.service.ts:35`
   - **Issue:** Token in URL could be logged
-  - **Fix Required:** Investigate if Mapbox supports header auth, or document risk
+  - **Fix Applied:** Documented as acceptable risk - Mapbox only supports query param auth. Added security notes and mitigation strategies.
   - **Estimated Time:** 15 minutes
 
-- [ ] **MEDIUM-006: Sensitive Information in Logs**
-  - **File:** `src/utils/shopify.ts:26-29`
+- [x] **MEDIUM-006: Sensitive Information in Logs** ✅ FIXED
+  - **File:** `src/utils/shopify.ts`
   - **Issue:** Logging HMAC values could expose secrets
-  - **Fix Required:** Remove HMAC values from logs
+  - **Fix Applied:** Removed HMAC values from logs
   - **Estimated Time:** 10 minutes
 
 ### Security - CORS Configuration
 
-- [ ] **MEDIUM-007: CORS Configuration Limitations**
-  - **File:** `src/app.ts:24-29`
+- [x] **MEDIUM-007: CORS Configuration Limitations** ✅ FIXED
+  - **Files:** `src/config/env.ts:53-56`, `src/app.ts:27-45`
   - **Issue:** Single static origin, no multi-environment support
-  - **Fix Required:** Support comma-separated origins with validation
+  - **Fix Applied:** CORS_ORIGIN now supports comma-separated origins. Dynamic origin validation with proper error handling.
   - **Estimated Time:** 30 minutes
 
 ### Performance - Pagination
 
-- [ ] **MEDIUM-008: No Maximum Pagination Limit**
-  - **Files:** All service files with `listX` methods
+- [x] **MEDIUM-008: No Maximum Pagination Limit** ✅ FIXED
+  - **Files:** `src/constants/pagination.ts` (new), all service files with `listX` methods
   - **Issue:** Users can request unlimited records (`?limit=999999`)
-  - **Fix Required:** Add `MAX_LIMIT = 100` constant
+  - **Fix Applied:** Added MAX_PAGINATION_LIMIT = 100 constant. All list methods now cap limit at 100.
   - **Estimated Time:** 30 minutes
 
-- [ ] **MEDIUM-009: Unnecessary Data Fetching in Driver Get**
-  - **File:** `src/modules/drivers/drivers.service.ts:76-85`
+- [x] **MEDIUM-009: Unnecessary Data Fetching in Driver Get** ✅ FIXED
+  - **Files:** `src/modules/drivers/drivers.service.ts:75`, `drivers.controller.ts:55`
   - **Issue:** Always fetching related delivery runs
-  - **Fix Required:** Make it optional via parameter
+  - **Fix Applied:** Added optional `includeRuns` parameter (default: false). API supports `?includeRuns=true` query param.
   - **Estimated Time:** 20 minutes
 
-- [ ] **MEDIUM-010: Unnecessary Data Fetching in Vehicle Get**
-  - **File:** `src/modules/vehicles/vehicles.service.ts:82-91`
+- [x] **MEDIUM-010: Unnecessary Data Fetching in Vehicle Get** ✅ FIXED
+  - **Files:** `src/modules/vehicles/vehicles.service.ts:81`, `vehicles.controller.ts:61`
   - **Issue:** Always fetching related delivery runs
-  - **Fix Required:** Make it optional via parameter
+  - **Fix Applied:** Added optional `includeRuns` parameter (default: false). API supports `?includeRuns=true` query param.
   - **Estimated Time:** 20 minutes
 
 ### Error Handling
 
-- [ ] **MEDIUM-011: Synchronous Error in Async Middleware**
-  - **File:** `src/middleware/shopifyWebhook.ts:9`
+- [x] **MEDIUM-011: Synchronous Error in Async Middleware** ✅ FIXED
+  - **File:** `src/middleware/shopifyWebhook.ts:10`
   - **Issue:** Throwing error synchronously in async context
-  - **Fix Required:** Use `next(error)` instead of `throw`
+  - **Fix Applied:** Now uses `next(error)` instead of `throw`
   - **Estimated Time:** 10 minutes
 
-- [ ] **MEDIUM-012: Generic Error Messages**
-  - **Files:** Multiple service files
-  - **Issue:** Catching errors and throwing generic 500s
-  - **Fix Required:** Preserve error details in development mode
+- [x] **MEDIUM-012: Generic Error Messages** ✅ FIXED
+  - **Files:** `src/middleware/errorHandler.ts` (new helper), all service files
+  - **Issue:** Catching errors and throwing generic 500s without details
+  - **Fix Applied:** Created `createAppError()` helper that preserves error details in dev mode. Updated all services to use it.
   - **Estimated Time:** 1 hour
 
 ### Code Quality - Duplication
 
-- [ ] **MEDIUM-013: Duplicate Geocoding Logic**
-  - **Files:** `orders.service.ts:66-88`, `shopify.service.ts:105-120`
+- [x] **MEDIUM-013: Duplicate Geocoding Logic** ✅ FIXED
+  - **Files:** `src/utils/geocoding.ts` (new), `orders.service.ts`, `shopify.service.ts`
   - **Issue:** Same geocoding + WKT creation code duplicated
-  - **Fix Required:** Extract to shared utility function
+  - **Fix Applied:** Created `geocodeAddressToWKT()` utility function. Both services now use shared logic.
   - **Estimated Time:** 30 minutes
 
-- [ ] **MEDIUM-014: Duplicate Available Resource Logic**
-  - **Files:** `drivers.service.ts:170-201`, `vehicles.service.ts:182-212`
+- [x] **MEDIUM-014: Duplicate Available Resource Logic** ✅ FIXED
+  - **Files:** `src/utils/availability.ts` (new), `drivers.service.ts`, `vehicles.service.ts`
   - **Issue:** Nearly identical availability checking code
-  - **Fix Required:** Create generic helper function
+  - **Fix Applied:** Created `getBusyResourceIds()` generic utility function. Both services now use shared logic.
   - **Estimated Time:** 45 minutes
 
 **Total Medium: 14 issues | Estimated Time: 6-7 hours**
@@ -262,16 +262,16 @@
 
 ### Code Quality - Magic Numbers
 
-- [ ] **LOW-001: Magic Numbers in Service Duration**
-  - **File:** `src/modules/runs/runs.service.ts:273`
+- [x] **LOW-001: Magic Numbers in Service Duration** ✅ FIXED
+  - **Files:** `src/constants/time.ts` (new), `runs.service.ts`
   - **Issue:** Hardcoded `300` seconds
-  - **Fix Required:** Create named constant `DEFAULT_SERVICE_DURATION_SECONDS`
+  - **Fix Applied:** Created `DEFAULT_SERVICE_DURATION_SECONDS` constant.
   - **Estimated Time:** 5 minutes
 
-- [ ] **LOW-002: Magic Numbers in Date Calculations**
-  - **Files:** Multiple locations with `7 * 24 * 60 * 60 * 1000`
+- [x] **LOW-002: Magic Numbers in Date Calculations** ✅ FIXED
+  - **Files:** `src/constants/time.ts` (new), multiple service files
   - **Issue:** Hardcoded millisecond calculations
-  - **Fix Required:** Use constants or `date-fns` library
+  - **Fix Applied:** Created MS_PER_DAY, MS_PER_WEEK, MS_PER_HOUR constants. Updated all services to use them.
   - **Estimated Time:** 15 minutes
 
 ### Code Quality - Validation
@@ -325,9 +325,9 @@
 |----------|--------------|----------------|--------|
 | 🚨 Critical | 3 | 45 minutes | ✅ **COMPLETE** (3/3) |
 | 🔴 High | 7 | 6-7 hours | ✅ **COMPLETE** (7/7) |
-| 🟡 Medium | 14 | 6-7 hours | 🟢 **IN PROGRESS** (4/14) |
-| 🟢 Low | 7 | 6 hours | ⏳ Pending (0/7) |
-| **TOTAL** | **31** | **~20 hours** | **45% Complete (14/31)** |
+| 🟡 Medium | 14 | 6-7 hours | ✅ **COMPLETE** (14/14) |
+| 🟢 Low | 7 | 6 hours | 🟢 **IN PROGRESS** (2/7) |
+| **TOTAL** | **31** | **~20 hours** | **84% Complete (26/31)** |
 
 ---
 
@@ -398,8 +398,8 @@
 - **Phase 1 Complete:** [x] ✅ All critical SQL injection vulnerabilities fixed
 - **Phase 2 Complete:** [x] ✅ Authentication, rate limiting, webhook verification implemented
 - **Phase 3 Complete:** [x] ✅ Database transactions and indexes added, N+1 queries fixed
-- **Phase 4 Complete:** [ ] 🟢 IN PROGRESS - Type safety improvements (4/14 medium issues resolved)
-- **Phase 5 Complete:** [ ] ⏳ Pending
+- **Phase 4 Complete:** [x] ✅ Type safety and code quality (all 14 medium issues resolved)
+- **Phase 5 Complete:** [ ] 🟢 IN PROGRESS - Documentation and polish (2/7 low priority issues resolved)
 
 ---
 
