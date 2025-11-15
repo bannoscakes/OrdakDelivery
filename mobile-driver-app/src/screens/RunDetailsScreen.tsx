@@ -19,7 +19,7 @@ interface RunDetailsScreenProps {
 
 const RunDetailsScreen: React.FC<RunDetailsScreenProps> = ({ navigation, route }) => {
   const { runId } = route.params;
-  const { currentRun, startRun, completeRun, isLoading, setCurrentRun } = useRunsStore();
+  const { currentRun, startRun, completeRun, isLoading } = useRunsStore();
   const [run, setRun] = useState<DeliveryRun | null>(currentRun);
 
   useEffect(() => {

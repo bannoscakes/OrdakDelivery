@@ -55,7 +55,7 @@ class AuthService {
     try {
       const accessToken = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
       return !!accessToken;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

@@ -1,5 +1,5 @@
 import { apiClient } from './api';
-import { DeliveryRun, ApiResponse, PaginatedResponse, RunStatus } from '@/types';
+import { DeliveryRun, PaginatedResponse, RunStatus } from '@/types';
 
 export interface RunsQueryParams {
   status?: RunStatus;

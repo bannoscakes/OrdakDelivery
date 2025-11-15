@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { StatusBar, Platform } from 'react-native';
+import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { useAuthStore } from '@/store/auth.store';
@@ -10,7 +10,7 @@ const App: React.FC = () => {
   useEffect(() => {
     // Load stored authentication on app start
     loadStoredAuth();
-  }, []);
+  }, [loadStoredAuth]);
 
   return (
     <SafeAreaProvider>
