@@ -1,6 +1,6 @@
 import { apiClient, STORAGE_KEYS } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Driver, LoginCredentials, AuthTokens, ApiResponse } from '@/types';
+import { Driver, LoginCredentials, AuthTokens } from '@/types';
 
 export interface LoginResponse {
   driver: Driver;
