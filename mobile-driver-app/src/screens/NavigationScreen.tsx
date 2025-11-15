@@ -17,6 +17,14 @@ import { Location } from '@/types';
 // Initialize Mapbox
 MapboxGL.setAccessToken(Config.MAPBOX_ACCESS_TOKEN || '');
 
+// Mapbox line layer style (extracted to prevent inline style warning)
+const routeLineStyle = {
+  lineColor: '#2196F3',
+  lineWidth: 4,
+  lineCap: 'round',
+  lineJoin: 'round',
+} as const;
+
 interface NavigationScreenProps {
   navigation: any;
   route: any;
@@ -196,15 +204,7 @@ const NavigationScreen: React.FC<NavigationScreenProps> = ({ navigation, route }
               type: 'LineString',
               coordinates: routeCoordinates,
             }}>
-            <MapboxGL.LineLayer
-              id="route-line"
-              style={{
-                lineColor: '#2196F3',
-                lineWidth: 4,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
+            <MapboxGL.LineLayer id="route-line" style={routeLineStyle} />
           </MapboxGL.ShapeSource>
         )}
       </MapboxGL.MapView>
