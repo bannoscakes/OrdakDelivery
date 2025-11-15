@@ -14,6 +14,23 @@ import ProofOfDeliveryScreen from '@/screens/ProofOfDeliveryScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+// Tab Bar Icons (extracted to prevent re-renders)
+const HomeIcon: React.FC<{ color: string; size: number }> = ({ color, size }) => (
+  <Text style={{ fontSize: size, color }}>🏠</Text>
+);
+
+const RunsIcon: React.FC<{ color: string; size: number }> = ({ color, size }) => (
+  <Text style={{ fontSize: size, color }}>📋</Text>
+);
+
+const HistoryIcon: React.FC<{ color: string; size: number }> = ({ color, size }) => (
+  <Text style={{ fontSize: size, color }}>📊</Text>
+);
+
+const ProfileIcon: React.FC<{ color: string; size: number }> = ({ color, size }) => (
+  <Text style={{ fontSize: size, color }}>👤</Text>
+);
+
 // Main Tab Navigator (for authenticated users)
 const MainTabNavigator = () => {
   return (
@@ -37,9 +54,7 @@ const MainTabNavigator = () => {
         component={DashboardScreen}
         options={{
           tabBarLabel: 'Home',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>🏠</Text>
-          ),
+          tabBarIcon: HomeIcon,
         }}
       />
       <Tab.Screen
@@ -47,9 +62,7 @@ const MainTabNavigator = () => {
         component={DashboardScreen}
         options={{
           tabBarLabel: 'Runs',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>📋</Text>
-          ),
+          tabBarIcon: RunsIcon,
         }}
       />
       <Tab.Screen
@@ -57,9 +70,7 @@ const MainTabNavigator = () => {
         component={DashboardScreen}
         options={{
           tabBarLabel: 'History',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>📊</Text>
-          ),
+          tabBarIcon: HistoryIcon,
         }}
       />
       <Tab.Screen
@@ -67,9 +78,7 @@ const MainTabNavigator = () => {
         component={DashboardScreen}
         options={{
           tabBarLabel: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>👤</Text>
-          ),
+          tabBarIcon: ProfileIcon,
         }}
       />
     </Tab.Navigator>

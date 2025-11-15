@@ -9,7 +9,6 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
-  Image,
 } from 'react-native';
 import { useAuthStore } from '@/store/auth.store';
 

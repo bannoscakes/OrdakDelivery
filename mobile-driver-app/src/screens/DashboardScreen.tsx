@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useAuthStore } from '@/store/auth.store';
 import { useRunsStore } from '@/store/runs.store';
@@ -22,13 +21,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   const { runs, fetchTodayRuns, isLoading, setCurrentRun } = useRunsStore();
   const [refreshing, setRefreshing] = useState(false);
 
+  const loadData = useCallback(async () => {
+    await fetchTodayRuns();
+  }, [fetchTodayRuns]);
+
   useEffect(() => {
     loadData();
-  }, []);
-
-  const loadData = async () => {
-    await fetchTodayRuns();
-  };
+  }, [loadData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
