@@ -106,6 +106,9 @@ model Order {
   @@index([scheduledDate])
   @@index([customerId])
   @@index([shopifyOrderId])
+  @@index([assignedRunId])
+  @@index([geocoded])
+  @@index([scheduledDate, geocoded])
   @@map("orders")
 }
 

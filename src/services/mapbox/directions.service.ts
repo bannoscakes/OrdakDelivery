@@ -46,6 +46,11 @@ export class MapboxDirectionsService {
         throw new AppError(404, 'No route found');
       }
 
+      // Validate route has required properties
+      if (typeof route.distance !== 'number' || typeof route.duration !== 'number') {
+        throw new AppError(500, 'Invalid route data received from Mapbox');
+      }
+
       logger.info('Route calculated', {
         waypoints: waypoints.length,
         distance: route.distance,

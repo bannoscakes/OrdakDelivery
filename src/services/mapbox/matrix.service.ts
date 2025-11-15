@@ -42,9 +42,14 @@ export class MapboxMatrixService {
         throw new AppError(500, 'Invalid matrix response from Mapbox');
       }
 
+      // Validate that distances and durations are arrays of arrays
+      if (!Array.isArray(distances) || !Array.isArray(durations)) {
+        throw new AppError(500, 'Invalid matrix format received from Mapbox');
+      }
+
       const result: MatrixResult = {
-        distances: distances as number[][],
-        durations: durations as number[][],
+        distances,
+        durations,
         sources: locations,
         destinations: locations,
       };

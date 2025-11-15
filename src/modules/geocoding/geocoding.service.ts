@@ -98,6 +98,7 @@ export class GeocodingService {
 
   /**
    * Batch geocode multiple addresses
+   * Optimized to avoid N+1 queries by fetching all cached addresses at once
    */
   async batchGeocode(
     addresses: string[],
@@ -105,12 +106,78 @@ export class GeocodingService {
   ): Promise<Map<string, GeocodeResult>> {
     const results = new Map<string, GeocodeResult>();
 
-    // Process sequentially to avoid rate limiting
+    // Normalize all addresses for cache lookup
+    const normalizedAddresses = addresses.map(addr => addr.trim().toLowerCase());
+
+    // Fetch all cached addresses in a single query (fixes N+1 issue)
+    const cachedResults = await prisma.geocodingCache.findMany({
+      where: {
+        address: {
+          in: normalizedAddresses,
+        },
+      },
+    });
+
+    // Create a map for quick cache lookups
+    const cacheMap = new Map(
+      cachedResults.map(cached => [
+        cached.address,
+        {
+          coordinates: {
+            latitude: cached.latitude,
+            longitude: cached.longitude,
+          },
+          formattedAddress: cached.formattedAddress,
+          cached: true,
+        },
+      ])
+    );
+
+    // Process addresses sequentially to avoid rate limiting
     // In production, consider implementing a queue system
-    for (const address of addresses) {
+    for (let i = 0; i < addresses.length; i++) {
+      const address = addresses[i];
+      const normalizedAddress = normalizedAddresses[i];
+
       try {
-        const result = await this.geocodeAddress(address, options);
-        results.set(address, result);
+        // Check cache map first
+        const cachedResult = cacheMap.get(normalizedAddress);
+
+        if (cachedResult) {
+          logger.info('Geocoding cache hit (batch)', { address });
+          results.set(address, cachedResult);
+          continue;
+        }
+
+        // Cache miss - call Mapbox
+        logger.info('Geocoding cache miss (batch), calling Mapbox', { address });
+
+        const result = await mapboxGeocodingService.forward(address, {
+          country: options?.country,
+        });
+
+        // Store in cache
+        await prisma.geocodingCache.create({
+          data: {
+            address: normalizedAddress,
+            latitude: result.coordinates.latitude,
+            longitude: result.coordinates.longitude,
+            formattedAddress: result.formattedAddress,
+            provider: GeocodingProvider.MAPBOX,
+            confidence: result.confidence,
+          },
+        });
+
+        logger.info('Geocoding result cached (batch)', {
+          address,
+          formattedAddress: result.formattedAddress,
+        });
+
+        results.set(address, {
+          coordinates: result.coordinates,
+          formattedAddress: result.formattedAddress,
+          cached: false,
+        });
       } catch (error) {
         logger.error('Failed to geocode address in batch', { address, error });
         // Continue with other addresses

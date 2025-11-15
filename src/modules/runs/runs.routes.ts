@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import * as runsController from './runs.controller';
+import { authenticate } from '@/middleware/authenticate';
 
 const router = Router();
+
+// Apply authentication to all delivery run routes
+router.use(authenticate);
 
 /**
  * @route   POST /api/v1/runs

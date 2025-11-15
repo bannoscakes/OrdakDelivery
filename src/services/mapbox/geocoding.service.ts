@@ -47,10 +47,18 @@ export class MapboxGeocodingService {
         }
       }
 
+      // Validate coordinates before type assertion
+      const longitude = feature.center[0];
+      const latitude = feature.center[1];
+
+      if (typeof longitude !== 'number' || typeof latitude !== 'number') {
+        throw new AppError(500, 'Invalid coordinates received from geocoding service');
+      }
+
       const result: GeocodingResult = {
         coordinates: {
-          longitude: feature.center[0] as number,
-          latitude: feature.center[1] as number,
+          longitude,
+          latitude,
         },
         formattedAddress: feature.place_name,
         confidence: feature.relevance,
@@ -112,10 +120,18 @@ export class MapboxGeocodingService {
         }
       }
 
+      // Validate coordinates before type assertion
+      const longitude = feature.center[0];
+      const latitude = feature.center[1];
+
+      if (typeof longitude !== 'number' || typeof latitude !== 'number') {
+        throw new AppError(500, 'Invalid coordinates received from geocoding service');
+      }
+
       const result: GeocodingResult = {
         coordinates: {
-          longitude: feature.center[0] as number,
-          latitude: feature.center[1] as number,
+          longitude,
+          latitude,
         },
         formattedAddress: feature.place_name,
         confidence: feature.relevance,
