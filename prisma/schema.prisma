@@ -1,0 +1,351 @@
+// Prisma schema for OrdakDelivery
+// PostgreSQL with PostGIS extensions
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis(version: "3.4")]
+}
+
+// ============================================
+// CUSTOMERS
+// ============================================
+
+model Customer {
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  phone     String?
+  firstName String
+  lastName  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+
+  @@map("customers")
+}
+
+// ============================================
+// ORDERS
+// ============================================
+
+enum OrderType {
+  DELIVERY
+  PICKUP
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  ASSIGNED
+  IN_PROGRESS
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  orderNumber       String      @unique
+  shopifyOrderId    String?     @unique
+  shopifyOrderName  String?
+  type              OrderType   @default(DELIVERY)
+  status            OrderStatus @default(PENDING)
+
+  // Customer information
+  customerId        String
+  customer          Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  // Address information
+  addressLine1      String
+  addressLine2      String?
+  city              String
+  province          String
+  postalCode        String
+  country           String      @default("CA")
+
+  // Geocoded location (PostGIS geometry point)
+  // Format: POINT(longitude latitude)
+  location          Unsupported("geometry(Point, 4326)")?
+  geocoded          Boolean     @default(false)
+  geocodedAt        DateTime?
+
+  // Delivery/Pickup scheduling
+  scheduledDate     DateTime
+  timeWindowStart   DateTime?
+  timeWindowEnd     DateTime?
+
+  // Order details
+  items             Json // Array of order items
+  notes             String?
+  specialInstructions String?
+
+  // Delivery information
+  assignedRunId     String?
+  assignedRun       DeliveryRun? @relation(fields: [assignedRunId], references: [id], onDelete: SetNull)
+  sequenceInRun     Int?
+
+  estimatedArrival  DateTime?
+  actualArrival     DateTime?
+
+  // Proof of delivery
+  deliveredAt       DateTime?
+  deliveryNotes     String?
+  signatureUrl      String?
+  photoUrls         Json? // Array of photo URLs
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status])
+  @@index([scheduledDate])
+  @@index([customerId])
+  @@index([shopifyOrderId])
+  @@map("orders")
+}
+
+// ============================================
+// DRIVERS & VEHICLES
+// ============================================
+
+enum DriverStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+}
+
+model Driver {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  firstName   String
+  lastName    String
+  phone       String
+  licenseNumber String?
+  status      DriverStatus @default(ACTIVE)
+
+  // Working hours
+  startTime   String? // Format: HH:mm
+  endTime     String? // Format: HH:mm
+
+  // Tracking
+  traccarDeviceId String?
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  deliveryRuns DeliveryRun[]
+
+  @@map("drivers")
+}
+
+enum VehicleType {
+  CAR
+  VAN
+  TRUCK
+  BIKE
+  MOTORCYCLE
+}
+
+model Vehicle {
+  id            String      @id @default(cuid())
+  licensePlate  String      @unique
+  make          String
+  model         String
+  year          Int
+  type          VehicleType
+
+  // Capacity constraints
+  maxWeight     Float? // kg
+  maxVolume     Float? // cubic meters
+  maxStops      Int?   // maximum number of stops per run
+
+  // Tracking
+  traccarDeviceId String?
+
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  deliveryRuns  DeliveryRun[]
+
+  @@map("vehicles")
+}
+
+// ============================================
+// DELIVERY RUNS & ROUTES
+// ============================================
+
+enum RunStatus {
+  DRAFT
+  PLANNED
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model DeliveryRun {
+  id          String    @id @default(cuid())
+  name        String
+  status      RunStatus @default(DRAFT)
+
+  // Assignment
+  driverId    String?
+  driver      Driver?   @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicleId   String?
+  vehicle     Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  // Schedule
+  scheduledDate DateTime
+  startTime   DateTime?
+  endTime     DateTime?
+
+  // Route information
+  routeGeometry Json? // GeoJSON LineString from Mapbox
+  totalDistance Float? // meters
+  totalDuration Int?   // seconds
+
+  // Optimization metadata
+  optimizedAt DateTime?
+  optimizationJobId String?
+
+  // Statistics
+  totalStops  Int       @default(0)
+  completedStops Int    @default(0)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  orders      Order[]
+
+  @@index([status])
+  @@index([scheduledDate])
+  @@index([driverId])
+  @@map("delivery_runs")
+}
+
+// ============================================
+// ZONES
+// ============================================
+
+model DeliveryZone {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+
+  // Zone geometry (PostGIS polygon)
+  // Format: POLYGON((lon lat, lon lat, ...))
+  boundary    Unsupported("geometry(Polygon, 4326)")
+
+  // Configuration
+  isActive    Boolean  @default(true)
+  priority    Int      @default(0)
+
+  // Generated from isochrone or manually defined
+  generatedFromIsochrone Boolean @default(false)
+  isochroneCenter        Json? // {lat, lon}
+  isochroneDuration      Int?  // minutes
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("delivery_zones")
+}
+
+// ============================================
+// GEOCODING CACHE
+// ============================================
+
+enum GeocodingProvider {
+  MAPBOX
+  PELIAS
+}
+
+model GeocodingCache {
+  id          String            @id @default(cuid())
+  address     String            @unique
+
+  // Geocoded result
+  latitude    Float
+  longitude   Float
+  formattedAddress String
+
+  provider    GeocodingProvider
+  confidence  Float? // 0-1
+
+  createdAt   DateTime          @default(now())
+
+  @@index([address])
+  @@map("geocoding_cache")
+}
+
+// ============================================
+// ROUTE OPTIMIZATION JOBS
+// ============================================
+
+enum OptimizationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model OptimizationJob {
+  id          String              @id @default(cuid())
+  status      OptimizationStatus  @default(PENDING)
+
+  // Input parameters
+  orderIds    Json // Array of order IDs
+  vehicleId   String?
+  driverId    String?
+  constraints Json? // Time windows, capacity, etc.
+
+  // Provider details
+  provider    String // "mapbox" or "vroom"
+  externalJobId String?
+
+  // Result
+  solution    Json? // Optimized route solution
+  errorMessage String?
+
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([status])
+  @@map("optimization_jobs")
+}
+
+// ============================================
+// TRACKING & LOCATION HISTORY
+// ============================================
+
+model LocationHistory {
+  id          String   @id @default(cuid())
+
+  // Can be associated with driver or vehicle
+  driverId    String?
+  vehicleId   String?
+  runId       String?
+
+  // Location (PostGIS point)
+  location    Unsupported("geometry(Point, 4326)")
+  latitude    Float
+  longitude   Float
+
+  // Additional data
+  accuracy    Float? // meters
+  speed       Float? // km/h
+  heading     Float? // degrees
+
+  recordedAt  DateTime @default(now())
+
+  @@index([driverId, recordedAt])
+  @@index([vehicleId, recordedAt])
+  @@index([runId, recordedAt])
+  @@map("location_history")
+}

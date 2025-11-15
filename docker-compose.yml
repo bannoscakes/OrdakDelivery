@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: ordak-delivery-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ordak
+      POSTGRES_PASSWORD: ordak_dev_password
+      POSTGRES_DB: ordakdelivery
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-postgis.sql:/docker-entrypoint-initdb.d/10-init-postgis.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ordak -d ordakdelivery']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: PgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ordak-delivery-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ordak.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - '5050:80'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+  pgadmin_data:
