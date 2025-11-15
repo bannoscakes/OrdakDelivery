@@ -4,6 +4,7 @@ import { AppError } from '@/middleware/errorHandler';
 import geocodingService from '@/modules/geocoding/geocoding.service';
 import { Order, OrderType, OrderStatus, Prisma } from '@prisma/client';
 import type { CreateOrderInput, UpdateOrderInput, OrderItem } from './orders.types';
+import { normalizePagination } from '@/utils/pagination';
 
 export class OrdersService {
   /**
@@ -128,9 +129,7 @@ export class OrdersService {
     page?: number;
     limit?: number;
   }) {
-    const page = params.page || 1;
-    const limit = params.limit || 20;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePagination(params);
 
     const where: Prisma.OrderWhereInput = {
       ...(params.status && { status: params.status }),
