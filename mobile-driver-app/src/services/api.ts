@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import Config from 'react-native-config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiResponse, ApiError, AuthTokens } from '@/types';
+import { logger } from '@/utils/logger';
 
 const API_BASE_URL = Config.API_BASE_URL || 'http://localhost:3000/api/v1';
 const API_TIMEOUT = parseInt(Config.API_TIMEOUT || '30000', 10);
@@ -86,7 +87,7 @@ class ApiClient {
     try {
       return await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     } catch (error) {
-      console.error('Error getting access token:', error);
+      logger.error('Error getting access token:', error);
       return null;
     }
   }

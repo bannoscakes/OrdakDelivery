@@ -1,6 +1,7 @@
 import { apiClient, STORAGE_KEYS } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Driver, LoginCredentials, AuthTokens } from '@/types';
+import { logger } from '@/utils/logger';
 
 export interface LoginResponse {
   driver: Driver;
@@ -28,7 +29,7 @@ class AuthService {
     try {
       await apiClient.post('/auth/logout');
     } catch (error) {
-      console.warn('Logout API call failed:', error);
+      logger.warn('Logout API call failed:', error);
     } finally {
       await apiClient.clearAuth();
     }
@@ -42,7 +43,7 @@ class AuthService {
       const driverData = await AsyncStorage.getItem(STORAGE_KEYS.DRIVER_DATA);
       return driverData ? JSON.parse(driverData) : null;
     } catch (error) {
-      console.error('Error getting stored driver:', error);
+      logger.error('Error getting stored driver:', error);
       return null;
     }
   }

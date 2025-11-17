@@ -16,6 +16,7 @@ import { launchCamera } from 'react-native-image-picker';
 import { ordersService } from '@/services/orders.service';
 import { useRunsStore } from '@/store/runs.store';
 import { ProofOfDelivery } from '@/types';
+import { logger } from '@/utils/logger';
 
 interface ProofOfDeliveryScreenProps {
   navigation: any;
@@ -65,7 +66,7 @@ const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
         setPhotos([...photos, result.assets[0].uri]);
       }
     } catch (error) {
-      console.error('Camera error:', error);
+      logger.error('Camera error:', error);
       Alert.alert('Error', 'Failed to take photo');
     }
   };
@@ -135,9 +136,6 @@ const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
     setShowFailureModal(true);
   };
 
-  const submitFailure = async () => {
-    setShowFailureModal(true);
-  };
 
   const confirmFailedDelivery = async () => {
     if (!failureReason.trim()) {
@@ -382,41 +380,6 @@ const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
         </View>
       )}
 
-      {/* Failure Reason Modal */}
-      <Modal
-        visible={showFailureModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFailureModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.failureModalContainer}>
-            <Text style={styles.failureModalTitle}>Delivery Failed</Text>
-            <Text style={styles.failureModalSubtitle}>Please provide a reason:</Text>
-            <TextInput
-              style={styles.failureInput}
-              placeholder="e.g., Customer not home, Wrong address..."
-              value={failureReason}
-              onChangeText={setFailureReason}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              autoFocus
-            />
-            <View style={styles.failureModalButtons}>
-              <TouchableOpacity
-                style={[styles.failureModalButton, styles.cancelButton]}
-                onPress={() => setShowFailureModal(false)}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.failureModalButton, styles.submitButton]}
-                onPress={submitFailure}>
-                <Text style={styles.submitButtonText}>Submit</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
@@ -649,12 +612,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  failureModalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 24,
-    width: '85%',
-  },
   failureModalContent: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -672,17 +629,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 16,
-  },
-  failureInput: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#333',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    minHeight: 100,
-    marginBottom: 20,
   },
   failureReasonInput: {
     height: 100,
@@ -705,14 +651,6 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: '#666',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  submitButton: {
-    backgroundColor: '#f44336',
-  },
-  submitButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },

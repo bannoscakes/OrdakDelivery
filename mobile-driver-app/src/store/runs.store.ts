@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { DeliveryRun, Location } from '@/types';
 import { runsService } from '@/services/runs.service';
+import { logger } from '@/utils/logger';
 
 interface RunsState {
   runs: DeliveryRun[];
@@ -123,7 +124,7 @@ export const useRunsStore = create<RunsState>((set, get) => ({
       const refreshedRun = await runsService.getRun(currentRun.id);
       set({ currentRun: refreshedRun });
     } catch (error) {
-      console.error('Failed to refresh current run:', error);
+      logger.error('Failed to refresh current run:', error);
     }
   },
 
