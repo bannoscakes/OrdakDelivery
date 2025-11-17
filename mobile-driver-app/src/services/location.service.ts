@@ -183,7 +183,7 @@ class LocationService {
    */
   async startBackgroundTracking(): Promise<void> {
     const state = await BackgroundGeolocation.start();
-    logger.debug('Background tracking started', { state });
+    logger.debug('Background tracking started:', state);
   }
 
   /**
