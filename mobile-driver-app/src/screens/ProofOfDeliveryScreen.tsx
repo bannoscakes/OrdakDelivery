@@ -18,6 +18,7 @@ import { launchCamera } from 'react-native-image-picker';
 import { ordersService } from '@/services/orders.service';
 import { useRunsStore } from '@/store/runs.store';
 import { ProofOfDelivery } from '@/types';
+import { logger } from '@/utils/logger';
 
 interface ProofOfDeliveryScreenProps {
   navigation: any;
@@ -67,7 +68,7 @@ const ProofOfDeliveryScreen: React.FC<ProofOfDeliveryScreenProps> = ({
         setPhotos([...photos, result.assets[0].uri]);
       }
     } catch (error) {
-      console.error('Camera error:', error);
+      logger.error('Camera error:', error);
       Alert.alert('Error', 'Failed to take photo');
     }
   };

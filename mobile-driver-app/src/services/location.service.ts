@@ -4,6 +4,7 @@ import { Platform, PermissionsAndroid } from 'react-native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { apiClient } from './api';
 import { Location } from '@/types';
+import { logger } from '@/utils/logger';
 
 class LocationService {
   private watchId: number | null = null;
@@ -47,7 +48,7 @@ class LocationService {
         return false;
       }
     } catch (error) {
-      console.error('Error requesting location permissions:', error);
+      logger.error('Error requesting location permissions:', error);
       return false;
     }
   }
@@ -65,7 +66,7 @@ class LocationService {
         return result === RESULTS.GRANTED || result === RESULTS.LIMITED;
       }
     } catch (error) {
-      console.error('Error checking location permissions:', error);
+      logger.error('Error checking location permissions:', error);
       return false;
     }
   }
@@ -119,7 +120,7 @@ class LocationService {
         callback(location);
       },
       error => {
-        console.error('Location tracking error:', error);
+        logger.error('Location tracking error:', error);
       },
       {
         enableHighAccuracy: true,
@@ -182,7 +183,7 @@ class LocationService {
    */
   async startBackgroundTracking(): Promise<void> {
     const state = await BackgroundGeolocation.start();
-    console.log('Background tracking started:', state);
+    logger.log('Background tracking started:', state);
   }
 
   /**
@@ -190,7 +191,7 @@ class LocationService {
    */
   async stopBackgroundTracking(): Promise<void> {
     await BackgroundGeolocation.stop();
-    console.log('Background tracking stopped');
+    logger.log('Background tracking stopped');
   }
 
   /**
@@ -203,7 +204,7 @@ class LocationService {
         runId,
       });
     } catch (error) {
-      console.error('Error sending location update:', error);
+      logger.error('Error sending location update:', error);
       // Store locally for retry
     }
   }

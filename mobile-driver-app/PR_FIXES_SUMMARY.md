@@ -131,9 +131,36 @@ This document summarizes all the issues fixed in response to code review feedbac
 
 ---
 
+### ✅ 9. Console Statements in Production Code
+
+**Issue**: Console.log/error/warn statements throughout codebase expose debug information in production
+
+**Fix**:
+- Created production-safe logger utility (`src/utils/logger.ts`)
+- Logger only outputs in development environment (__DEV__ flag)
+- Replaced all console statements with logger methods:
+  - `console.log` → `logger.log`
+  - `console.error` → `logger.error`
+  - `console.warn` → `logger.warn`
+- Production builds are now silent unless explicitly configured
+- Future: Can integrate with Sentry/Crashlytics for production error tracking
+
+**Files Changed**:
+- `src/utils/logger.ts` (new)
+- `src/services/location.service.ts`
+- `src/services/auth.service.ts`
+- `src/services/api.ts`
+- `src/store/auth.store.ts`
+- `src/store/runs.store.ts`
+- `src/screens/ProofOfDeliveryScreen.tsx`
+
+**Lines Changed**: ~15 console statements replaced across 7 files
+
+---
+
 ## TypeScript Configuration Fixes
 
-### ✅ 9. TypeScript Compilation Errors
+### ✅ 10. TypeScript Compilation Errors
 
 **Issue**: Multiple TypeScript errors due to missing lib and type definitions
 
@@ -158,6 +185,7 @@ This document summarizes all the issues fixed in response to code review feedbac
 1. `android/app/src/main/res/xml/network_security_config.xml`
 2. `ANDROID_SECURITY_NOTES.md`
 3. `PR_FIXES_SUMMARY.md` (this file)
+4. `src/utils/logger.ts`
 
 ### Files Modified:
 1. `android/app/src/main/AndroidManifest.xml`
@@ -169,12 +197,15 @@ This document summarizes all the issues fixed in response to code review feedbac
 7. `src/screens/ProofOfDeliveryScreen.tsx`
 8. `src/services/api.ts`
 9. `src/services/location.service.ts`
+10. `src/services/auth.service.ts`
+11. `src/store/auth.store.ts`
+12. `src/store/runs.store.ts`
 
 ### Total Changes:
-- **Files Created**: 3
-- **Files Modified**: 9
+- **Files Created**: 4
+- **Files Modified**: 12
 - **Security Issues Fixed**: 4
-- **Code Quality Issues Fixed**: 5
+- **Code Quality Issues Fixed**: 6
 - **TypeScript Errors Fixed**: 100+
 
 ---
@@ -193,6 +224,8 @@ After `npm install`, verify:
 - [ ] Camera/photos work on Android 11+ without storage permissions
 - [ ] Background location tracking works
 - [ ] Failure modal works on both iOS and Android
+- [ ] No console output in production builds
+- [ ] Logger utility works correctly in development
 
 ---
 
@@ -216,6 +249,10 @@ All fixes have been committed in logical groups:
 4. **TypeScript configuration** (ae3852e)
    - Fixed tsconfig.json
    - Added type definitions
+
+5. **Production-safe logging** (pending)
+   - Created logger utility
+   - Replaced all console statements
 
 ---
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Driver, AuthTokens } from '@/types';
 import { authService } from '@/services/auth.service';
+import { logger } from '@/utils/logger';
 
 interface AuthState {
   driver: Driver | null;
@@ -48,7 +49,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await authService.logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error('Logout error:', error);
     } finally {
       set({
         driver: null,
@@ -74,7 +75,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
     } catch (error) {
-      console.error('Error loading stored auth:', error);
+      logger.error('Error loading stored auth:', error);
     } finally {
       set({ isLoading: false });
     }
