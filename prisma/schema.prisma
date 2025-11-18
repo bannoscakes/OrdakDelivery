@@ -1,5 +1,6 @@
-// Prisma schema for OrdakDelivery
-// PostgreSQL with PostGIS extensions
+// Prisma Schema for OrdakDelivery
+// Database: PostgreSQL with PostGIS extension
+// Generated: 2024-11-18
 
 generator client {
   provider        = "prisma-client-js"
@@ -9,346 +10,459 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
-  extensions = [postgis(version: "3.4")]
+  extensions = [uuidOssp(map: "uuid-ossp"), postgis(version: "3.3.2")]
 }
 
-// ============================================
-// CUSTOMERS
-// ============================================
+// =====================================================
+// USERS & AUTHENTICATION
+// =====================================================
 
-model Customer {
-  id        String   @id @default(cuid())
-  email     String?  @unique
-  phone     String?
-  firstName String
-  lastName  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model User {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email           String    @unique @db.VarChar(255)
+  passwordHash    String    @map("password_hash") @db.VarChar(255)
+  role            UserRole
+  firstName       String    @map("first_name") @db.VarChar(100)
+  lastName        String    @map("last_name") @db.VarChar(100)
+  phone           String?   @db.VarChar(20)
+  isActive        Boolean   @default(true) @map("is_active")
+  emailVerified   Boolean   @default(false) @map("email_verified")
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  orders Order[]
+  // Relations
+  driver        Driver?
+  notifications Notification[]
+  auditLogs     AuditLog[]
 
-  @@map("customers")
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
 }
 
-// ============================================
-// ORDERS
-// ============================================
-
-enum OrderType {
-  DELIVERY
-  PICKUP
+enum UserRole {
+  admin
+  dispatcher
+  driver
 }
 
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  ASSIGNED
-  IN_PROGRESS
-  DELIVERED
-  FAILED
-  CANCELLED
-}
-
-model Order {
-  id                String      @id @default(cuid())
-  orderNumber       String      @unique
-  shopifyOrderId    String?     @unique
-  shopifyOrderName  String?
-  type              OrderType   @default(DELIVERY)
-  status            OrderStatus @default(PENDING)
-
-  // Customer information
-  customerId        String
-  customer          Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  // Address information
-  addressLine1      String
-  addressLine2      String?
-  city              String
-  province          String
-  postalCode        String
-  country           String      @default("CA")
-
-  // Geocoded location (PostGIS geometry point)
-  // Format: POINT(longitude latitude)
-  location          Unsupported("geometry(Point, 4326)")?
-  geocoded          Boolean     @default(false)
-  geocodedAt        DateTime?
-
-  // Delivery/Pickup scheduling
-  scheduledDate     DateTime
-  timeWindowStart   DateTime?
-  timeWindowEnd     DateTime?
-
-  // Order details
-  items             Json // Array of order items
-  notes             String?
-  specialInstructions String?
-
-  // Delivery information
-  assignedRunId     String?
-  assignedRun       DeliveryRun? @relation(fields: [assignedRunId], references: [id], onDelete: SetNull)
-  sequenceInRun     Int?
-
-  estimatedArrival  DateTime?
-  actualArrival     DateTime?
-
-  // Proof of delivery
-  deliveredAt       DateTime?
-  deliveryNotes     String?
-  signatureUrl      String?
-  photoUrls         Json? // Array of photo URLs
-
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  @@index([status])
-  @@index([scheduledDate])
-  @@index([customerId])
-  @@index([shopifyOrderId])
-  @@index([assignedRunId])
-  @@index([geocoded])
-  @@index([scheduledDate, geocoded])
-  @@map("orders")
-}
-
-// ============================================
-// DRIVERS & VEHICLES
-// ============================================
-
-enum DriverStatus {
-  ACTIVE
-  INACTIVE
-  ON_LEAVE
-}
+// =====================================================
+// DRIVERS
+// =====================================================
 
 model Driver {
-  id          String       @id @default(cuid())
-  email       String       @unique
-  firstName   String
-  lastName    String
-  phone       String
-  licenseNumber String?
-  status      DriverStatus @default(ACTIVE)
+  id                     String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId                 String    @unique @map("user_id") @db.Uuid
+  driverLicense          String    @unique @map("driver_license") @db.VarChar(50)
+  licenseExpiry          DateTime  @map("license_expiry") @db.Date
+  vehicleId              String?   @map("vehicle_id") @db.Uuid
+  status                 DriverStatus
+  currentLocation        Unsupported("geography(Point, 4326)")? @map("current_location")
+  lastLocationUpdate     DateTime? @map("last_location_update") @db.Timestamptz(6)
+  rating                 Decimal   @default(5.00) @db.Decimal(3, 2)
+  totalDeliveries        Int       @default(0) @map("total_deliveries")
+  emergencyContactName   String?   @map("emergency_contact_name") @db.VarChar(100)
+  emergencyContactPhone  String?   @map("emergency_contact_phone") @db.VarChar(20)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  // Working hours
-  startTime   String? // Format: HH:mm
-  endTime     String? // Format: HH:mm
+  // Relations
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle          Vehicle?            @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  deliveryRuns     DeliveryRun[]
+  proofOfDelivery  ProofOfDelivery[]
+  locationTracking LocationTracking[]
+  driverSessions   DriverSession[]
 
-  // Tracking
-  traccarDeviceId String?
-
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  deliveryRuns DeliveryRun[]
-
+  @@index([userId])
+  @@index([status])
+  @@index([vehicleId])
   @@map("drivers")
 }
 
-enum VehicleType {
-  CAR
-  VAN
-  TRUCK
-  BIKE
-  MOTORCYCLE
+enum DriverStatus {
+  offline
+  available
+  on_delivery
+  on_break
 }
 
+// =====================================================
+// VEHICLES
+// =====================================================
+
 model Vehicle {
-  id            String      @id @default(cuid())
-  licensePlate  String      @unique
-  make          String
-  model         String
-  year          Int
-  type          VehicleType
+  id                 String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  licensePlate       String        @unique @map("license_plate") @db.VarChar(20)
+  make               String        @db.VarChar(50)
+  model              String        @db.VarChar(50)
+  year               Int
+  vin                String?       @unique @db.VarChar(17)
+  color              String?       @db.VarChar(30)
+  capacityKg         Decimal?      @map("capacity_kg") @db.Decimal(10, 2)
+  capacityCubicM     Decimal?      @map("capacity_cubic_m") @db.Decimal(10, 2)
+  fuelType           FuelType?     @map("fuel_type")
+  status             VehicleStatus @default(active)
+  insuranceExpiry    DateTime?     @map("insurance_expiry") @db.Date
+  registrationExpiry DateTime?     @map("registration_expiry") @db.Date
+  lastServiceDate    DateTime?     @map("last_service_date") @db.Date
+  nextServiceDate    DateTime?     @map("next_service_date") @db.Date
+  odometerKm         Int           @default(0) @map("odometer_km")
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  // Capacity constraints
-  maxWeight     Float? // kg
-  maxVolume     Float? // cubic meters
-  maxStops      Int?   // maximum number of stops per run
+  // Relations
+  drivers        Driver[]
+  deliveryRuns   DeliveryRun[]
+  driverSessions DriverSession[]
 
-  // Tracking
-  traccarDeviceId String?
-
-  isActive      Boolean     @default(true)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  deliveryRuns  DeliveryRun[]
-
+  @@index([licensePlate])
+  @@index([status])
   @@map("vehicles")
 }
 
-// ============================================
-// DELIVERY RUNS & ROUTES
-// ============================================
-
-enum RunStatus {
-  DRAFT
-  PLANNED
-  ASSIGNED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
+enum FuelType {
+  gasoline
+  diesel
+  electric
+  hybrid
 }
 
-model DeliveryRun {
-  id          String    @id @default(cuid())
-  name        String
-  status      RunStatus @default(DRAFT)
+enum VehicleStatus {
+  active
+  maintenance
+  retired
+}
 
-  // Assignment
-  driverId    String?
-  driver      Driver?   @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  vehicleId   String?
-  vehicle     Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+// =====================================================
+// CUSTOMERS
+// =====================================================
 
-  // Schedule
-  scheduledDate DateTime
-  startTime   DateTime?
-  endTime     DateTime?
+model Customer {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  externalId     String?  @map("external_id") @db.VarChar(255)
+  externalSource String?  @map("external_source") @db.VarChar(50)
+  email          String?  @db.VarChar(255)
+  phone          String?  @db.VarChar(20)
+  firstName      String   @map("first_name") @db.VarChar(100)
+  lastName       String   @map("last_name") @db.VarChar(100)
+  company        String?  @db.VarChar(255)
+  notes          String?  @db.Text
+  totalOrders    Int      @default(0) @map("total_orders")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  // Route information
-  routeGeometry Json? // GeoJSON LineString from Mapbox
-  totalDistance Float? // meters
-  totalDuration Int?   // seconds
+  // Relations
+  addresses Address[]
+  orders    Order[]
 
-  // Optimization metadata
-  optimizedAt DateTime?
-  optimizationJobId String?
+  @@index([email])
+  @@index([phone])
+  @@index([externalId, externalSource])
+  @@map("customers")
+}
 
-  // Statistics
-  totalStops  Int       @default(0)
-  completedStops Int    @default(0)
+// =====================================================
+// ADDRESSES
+// =====================================================
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+model Address {
+  id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  customerId            String?   @map("customer_id") @db.Uuid
+  label                 String?   @db.VarChar(50)
+  line1                 String    @db.VarChar(255)
+  line2                 String?   @db.VarChar(255)
+  city                  String    @db.VarChar(100)
+  stateProvince         String?   @map("state_province") @db.VarChar(100)
+  postalCode            String    @map("postal_code") @db.VarChar(20)
+  country               String    @default("US") @db.VarChar(2)
+  latitude              Decimal?  @db.Decimal(10, 8)
+  longitude             Decimal?  @db.Decimal(11, 8)
+  location              Unsupported("geography(Point, 4326)")?
+  geocodedAt            DateTime? @map("geocoded_at") @db.Timestamptz(6)
+  deliveryInstructions  String?   @map("delivery_instructions") @db.Text
+  isDefault             Boolean   @default(false) @map("is_default")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  orders      Order[]
+  // Relations
+  customer             Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  orders               Order[]
+  deliveryRunsStart    DeliveryRun[]
 
+  @@index([customerId])
+  @@index([postalCode])
+  @@map("addresses")
+}
+
+// =====================================================
+// ORDERS
+// =====================================================
+
+model Order {
+  id                    String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderNumber           String        @unique @map("order_number") @db.VarChar(100)
+  externalId            String?       @map("external_id") @db.VarChar(255)
+  externalSource        String        @map("external_source") @db.VarChar(50)
+  externalMetadata      Json?         @map("external_metadata") @db.JsonB
+  customerId            String?       @map("customer_id") @db.Uuid
+  deliveryAddressId     String        @map("delivery_address_id") @db.Uuid
+  status                OrderStatus   @default(pending)
+  priority              Int           @default(0)
+  scheduledDate         DateTime?     @map("scheduled_date") @db.Date
+  deliveryWindowStart   DateTime?     @map("delivery_window_start") @db.Time(6)
+  deliveryWindowEnd     DateTime?     @map("delivery_window_end") @db.Time(6)
+  estimatedDeliveryTime DateTime?     @map("estimated_delivery_time") @db.Timestamptz(6)
+  actualDeliveryTime    DateTime?     @map("actual_delivery_time") @db.Timestamptz(6)
+  weightKg              Decimal?      @map("weight_kg") @db.Decimal(10, 2)
+  dimensionsCm          String?       @map("dimensions_cm") @db.VarChar(50)
+  packageCount          Int           @default(1) @map("package_count")
+  specialInstructions   String?       @map("special_instructions") @db.Text
+  requiresSignature     Boolean       @default(false) @map("requires_signature")
+  fragile               Boolean       @default(false)
+  subtotal              Decimal?      @db.Decimal(10, 2)
+  deliveryFee           Decimal?      @map("delivery_fee") @db.Decimal(10, 2)
+  tax                   Decimal?      @db.Decimal(10, 2)
+  total                 Decimal?      @db.Decimal(10, 2)
+  currency              String        @default("USD") @db.VarChar(3)
+  failureReason         String?       @map("failure_reason") @db.Text
+  failurePhotos         String[]      @map("failure_photos")
+  notes                 String?       @db.Text
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  customer        Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  deliveryAddress Address           @relation(fields: [deliveryAddressId], references: [id])
+  runOrders       RunOrder[]
+  proofOfDelivery ProofOfDelivery[]
+
+  @@index([orderNumber])
+  @@index([externalId, externalSource])
+  @@index([customerId])
   @@index([status])
   @@index([scheduledDate])
+  @@index([createdAt(sort: Desc)])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  pending
+  assigned
+  in_transit
+  delivered
+  failed
+  cancelled
+}
+
+// =====================================================
+// DELIVERY RUNS
+// =====================================================
+
+model DeliveryRun {
+  id                       String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  runNumber                String            @unique @map("run_number") @db.VarChar(100)
+  driverId                 String?           @map("driver_id") @db.Uuid
+  vehicleId                String?           @map("vehicle_id") @db.Uuid
+  status                   DeliveryRunStatus @default(draft)
+  scheduledDate            DateTime          @map("scheduled_date") @db.Date
+  startTime                DateTime?         @map("start_time") @db.Time(6)
+  estimatedEndTime         DateTime?         @map("estimated_end_time") @db.Time(6)
+  actualStartTime          DateTime?         @map("actual_start_time") @db.Timestamptz(6)
+  actualEndTime            DateTime?         @map("actual_end_time") @db.Timestamptz(6)
+  optimizedRoute           Json?             @map("optimized_route") @db.JsonB
+  totalDistanceKm          Decimal?          @map("total_distance_km") @db.Decimal(10, 2)
+  estimatedDurationMinutes Int?              @map("estimated_duration_minutes")
+  startAddressId           String?           @map("start_address_id") @db.Uuid
+  startLocation            Unsupported("geography(Point, 4326)")? @map("start_location")
+  totalOrders              Int               @default(0) @map("total_orders")
+  deliveredOrders          Int               @default(0) @map("delivered_orders")
+  failedOrders             Int               @default(0) @map("failed_orders")
+  notes                    String?           @db.Text
+  dispatcherNotes          String?           @map("dispatcher_notes") @db.Text
+  createdAt                DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  driver           Driver?             @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle          Vehicle?            @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  startAddress     Address?            @relation(fields: [startAddressId], references: [id])
+  runOrders        RunOrder[]
+  proofOfDelivery  ProofOfDelivery[]
+  locationTracking LocationTracking[]
+
+  @@index([runNumber])
   @@index([driverId])
+  @@index([status])
+  @@index([scheduledDate])
   @@map("delivery_runs")
 }
 
-// ============================================
-// ZONES
-// ============================================
-
-model DeliveryZone {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-
-  // Zone geometry (PostGIS polygon)
-  // Format: POLYGON((lon lat, lon lat, ...))
-  boundary    Unsupported("geometry(Polygon, 4326)")
-
-  // Configuration
-  isActive    Boolean  @default(true)
-  priority    Int      @default(0)
-
-  // Generated from isochrone or manually defined
-  generatedFromIsochrone Boolean @default(false)
-  isochroneCenter        Json? // {lat, lon}
-  isochroneDuration      Int?  // minutes
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("delivery_zones")
+enum DeliveryRunStatus {
+  draft
+  assigned
+  in_progress
+  completed
+  cancelled
 }
 
-// ============================================
-// GEOCODING CACHE
-// ============================================
+// =====================================================
+// RUN ORDERS (Junction Table)
+// =====================================================
 
-enum GeocodingProvider {
-  MAPBOX
-  PELIAS
+model RunOrder {
+  id            String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  runId         String          @map("run_id") @db.Uuid
+  orderId       String          @map("order_id") @db.Uuid
+  sequence      Int
+  status        RunOrderStatus  @default(pending)
+  arrivalTime   DateTime?       @map("arrival_time") @db.Timestamptz(6)
+  departureTime DateTime?       @map("departure_time") @db.Timestamptz(6)
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  run   DeliveryRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  order Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, orderId])
+  @@unique([runId, sequence])
+  @@index([runId])
+  @@index([orderId])
+  @@map("run_orders")
 }
 
-model GeocodingCache {
-  id          String            @id @default(cuid())
-  address     String            @unique
-
-  // Geocoded result
-  latitude    Float
-  longitude   Float
-  formattedAddress String
-
-  provider    GeocodingProvider
-  confidence  Float? // 0-1
-
-  createdAt   DateTime          @default(now())
-
-  @@index([address])
-  @@map("geocoding_cache")
+enum RunOrderStatus {
+  pending
+  in_transit
+  delivered
+  failed
+  skipped
 }
 
-// ============================================
-// ROUTE OPTIMIZATION JOBS
-// ============================================
+// =====================================================
+// PROOF OF DELIVERY
+// =====================================================
 
-enum OptimizationStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
+model ProofOfDelivery {
+  id                     String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderId                String   @map("order_id") @db.Uuid
+  runId                  String?  @map("run_id") @db.Uuid
+  driverId               String   @map("driver_id") @db.Uuid
+  recipientName          String?  @map("recipient_name") @db.VarChar(255)
+  recipientRelationship  String?  @map("recipient_relationship") @db.VarChar(100)
+  signatureUrl           String?  @map("signature_url") @db.Text
+  photos                 String[]
+  deliveredAt            DateTime @default(now()) @map("delivered_at") @db.Timestamptz(6)
+  location               Unsupported("geography(Point, 4326)")?
+  notes                  String?  @db.Text
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  order  Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  run    DeliveryRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+  driver Driver       @relation(fields: [driverId], references: [id])
+
+  @@index([orderId])
+  @@index([driverId])
+  @@index([deliveredAt(sort: Desc)])
+  @@map("proof_of_delivery")
 }
 
-model OptimizationJob {
-  id          String              @id @default(cuid())
-  status      OptimizationStatus  @default(PENDING)
+// =====================================================
+// LOCATION TRACKING (Partitioned)
+// =====================================================
 
-  // Input parameters
-  orderIds    Json // Array of order IDs
-  vehicleId   String?
-  driverId    String?
-  constraints Json? // Time windows, capacity, etc.
+model LocationTracking {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  driverId        String   @map("driver_id") @db.Uuid
+  runId           String?  @map("run_id") @db.Uuid
+  location        Unsupported("geography(Point, 4326)")
+  latitude        Decimal  @db.Decimal(10, 8)
+  longitude       Decimal  @db.Decimal(11, 8)
+  accuracyMeters  Decimal? @map("accuracy_meters") @db.Decimal(10, 2)
+  speedKmh        Decimal? @map("speed_kmh") @db.Decimal(10, 2)
+  headingDegrees  Decimal? @map("heading_degrees") @db.Decimal(5, 2)
+  altitudeMeters  Decimal? @map("altitude_meters") @db.Decimal(10, 2)
+  recordedAt      DateTime @map("recorded_at") @db.Timestamptz(6)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  // Provider details
-  provider    String // "mapbox" or "vroom"
-  externalJobId String?
+  // Relations
+  driver Driver       @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  run    DeliveryRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
 
-  // Result
-  solution    Json? // Optimized route solution
-  errorMessage String?
-
-  createdAt   DateTime @default(now())
-  completedAt DateTime?
-
-  @@index([status])
-  @@map("optimization_jobs")
+  @@index([driverId, recordedAt(sort: Desc)])
+  @@index([runId, recordedAt(sort: Desc)])
+  @@map("location_tracking")
 }
 
-// ============================================
-// TRACKING & LOCATION HISTORY
-// ============================================
+// =====================================================
+// DRIVER SESSIONS
+// =====================================================
 
-model LocationHistory {
-  id          String   @id @default(cuid())
+model DriverSession {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  driverId         String    @map("driver_id") @db.Uuid
+  vehicleId        String?   @map("vehicle_id") @db.Uuid
+  startTime        DateTime  @default(now()) @map("start_time") @db.Timestamptz(6)
+  endTime          DateTime? @map("end_time") @db.Timestamptz(6)
+  startLocation    Unsupported("geography(Point, 4326)")? @map("start_location")
+  endLocation      Unsupported("geography(Point, 4326)")? @map("end_location")
+  totalDistanceKm  Decimal?  @map("total_distance_km") @db.Decimal(10, 2)
+  totalDeliveries  Int       @default(0) @map("total_deliveries")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  // Can be associated with driver or vehicle
-  driverId    String?
-  vehicleId   String?
-  runId       String?
+  // Relations
+  driver  Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
-  // Location (PostGIS point)
-  location    Unsupported("geometry(Point, 4326)")
-  latitude    Float
-  longitude   Float
+  @@index([driverId, startTime(sort: Desc)])
+  @@map("driver_sessions")
+}
 
-  // Additional data
-  accuracy    Float? // meters
-  speed       Float? // km/h
-  heading     Float? // degrees
+// =====================================================
+// NOTIFICATIONS
+// =====================================================
 
-  recordedAt  DateTime @default(now())
+model Notification {
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  type      String    @db.VarChar(50)
+  title     String    @db.VarChar(255)
+  message   String    @db.Text
+  data      Json?     @db.JsonB
+  read      Boolean   @default(false)
+  readAt    DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  @@index([driverId, recordedAt])
-  @@index([vehicleId, recordedAt])
-  @@index([runId, recordedAt])
-  @@map("location_history")
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId], map: "idx_notifications_unread")
+  @@map("notifications")
+}
+
+// =====================================================
+// AUDIT LOGS (Partitioned)
+// =====================================================
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String   @map("entity_id") @db.Uuid
+  action     String   @db.VarChar(50)
+  changes    Json?    @db.JsonB
+  ipAddress  String?  @map("ip_address") @db.Inet
+  userAgent  String?  @map("user_agent") @db.Text
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("audit_logs")
 }
