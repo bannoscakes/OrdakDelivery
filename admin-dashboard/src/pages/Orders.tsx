@@ -3,9 +3,11 @@ import { ordersApi } from '../api';
 import { formatDate } from '../utils/date';
 
 export function Orders() {
+  const limit = 50;
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['orders'],
-    queryFn: () => ordersApi.list({ limit: 50 }),
+    queryKey: ['orders', { limit }],
+    queryFn: () => ordersApi.list({ limit }),
   });
 
   return (
@@ -19,7 +21,7 @@ export function Orders() {
 
       {data && (
         <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
-          <p>Total orders: {data.data.length}</p>
+          <p>Total orders: {data.pagination.total} (showing {data.data.length})</p>
           <div style={{ marginTop: '20px' }}>
             {data.data.map((order) => (
               <div
@@ -32,11 +34,12 @@ export function Orders() {
                 }}
               >
                 <div>
-                  <strong>{order.orderNumber}</strong> - {order.customer.firstName}{' '}
-                  {order.customer.lastName}
+                  <strong>{order.orderNumber}</strong> - {order.customer?.firstName ?? 'Unknown'}{' '}
+                  {order.customer?.lastName ?? ''}
                   <br />
                   <small style={{ color: '#666' }}>
-                    {order.address.line1}, {order.address.city} • {formatDate(order.scheduledDate)}
+                    {order.address?.line1 ?? '—'}, {order.address?.city ?? '—'} •{' '}
+                    {order.scheduledDate ? formatDate(order.scheduledDate) : '—'}
                   </small>
                 </div>
                 <span

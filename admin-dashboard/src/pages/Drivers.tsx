@@ -18,7 +18,7 @@ export function Drivers() {
 
       {data && (
         <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
-          <p>Total drivers: {data.data.length}</p>
+          <p>Total drivers: {data.pagination.total} (showing {data.data.length})</p>
           <div style={{ marginTop: '20px' }}>
             {data.data.map((driver) => (
               <div
