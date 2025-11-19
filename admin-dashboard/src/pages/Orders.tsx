@@ -32,11 +32,12 @@ export function Orders() {
                 }}
               >
                 <div>
-                  <strong>{order.orderNumber}</strong> - {order.customer.firstName}{' '}
-                  {order.customer.lastName}
+                  <strong>{order.orderNumber}</strong> - {order.customer?.firstName ?? 'Unknown'}{' '}
+                  {order.customer?.lastName ?? ''}
                   <br />
                   <small style={{ color: '#666' }}>
-                    {order.address.line1}, {order.address.city} • {formatDate(order.scheduledDate)}
+                    {order.address?.line1 ?? '—'}, {order.address?.city ?? '—'} •{' '}
+                    {order.scheduledDate ? formatDate(order.scheduledDate) : '—'}
                   </small>
                 </div>
                 <span
