@@ -373,9 +373,33 @@ export class RunsService {
 
   /**
    * Start a delivery run
+   * @param runId - ID of the run to start
+   * @param userContext - User making the request (id and role)
+   * @returns Promise resolving to the updated delivery run
+   * @throws {AppError} 404 if run not found, 403 if driver tries to start non-owned run
    */
-  async startRun(runId: string): Promise<DeliveryRun> {
-    const run = await this.updateRun(runId, {
+  async startRun(runId: string, userContext: { id: string; role: string }): Promise<DeliveryRun> {
+    // Single fetch with driver relation for authorization
+    const run = await prisma.deliveryRun.findUnique({
+      where: { id: runId },
+      include: {
+        driver: true,
+      },
+    });
+
+    if (!run) {
+      throw new AppError(404, 'Delivery run not found');
+    }
+
+    // Authorization check for DRIVER role
+    if (userContext.role === 'DRIVER') {
+      if (!run.driver || run.driver.userId !== userContext.id) {
+        throw new AppError(403, 'Drivers can only start their own assigned runs');
+      }
+    }
+
+    // Update run status
+    const updatedRun = await this.updateRun(runId, {
       status: RunStatus.IN_PROGRESS,
       startTime: new Date(),
     });
@@ -388,21 +412,45 @@ export class RunsService {
 
     logger.info('Delivery run started', { runId });
 
-    return run;
+    return updatedRun;
   }
 
   /**
    * Complete a delivery run
+   * @param runId - ID of the run to complete
+   * @param userContext - User making the request (id and role)
+   * @returns Promise resolving to the updated delivery run
+   * @throws {AppError} 404 if run not found, 403 if driver tries to complete non-owned run
    */
-  async completeRun(runId: string): Promise<DeliveryRun> {
-    const run = await this.updateRun(runId, {
+  async completeRun(runId: string, userContext: { id: string; role: string }): Promise<DeliveryRun> {
+    // Single fetch with driver relation for authorization
+    const run = await prisma.deliveryRun.findUnique({
+      where: { id: runId },
+      include: {
+        driver: true,
+      },
+    });
+
+    if (!run) {
+      throw new AppError(404, 'Delivery run not found');
+    }
+
+    // Authorization check for DRIVER role
+    if (userContext.role === 'DRIVER') {
+      if (!run.driver || run.driver.userId !== userContext.id) {
+        throw new AppError(403, 'Drivers can only complete their own assigned runs');
+      }
+    }
+
+    // Update run status
+    const updatedRun = await this.updateRun(runId, {
       status: RunStatus.COMPLETED,
       endTime: new Date(),
     });
 
     logger.info('Delivery run completed', { runId });
 
-    return run;
+    return updatedRun;
   }
 }
 
