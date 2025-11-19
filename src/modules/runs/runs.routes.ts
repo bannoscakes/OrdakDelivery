@@ -66,15 +66,15 @@ router.post('/:id/optimize', requireAdminOrDispatcher, runsController.optimizeRu
 /**
  * @route   POST /api/v1/runs/:id/start
  * @desc    Start delivery run
- * @access  Admin, Dispatcher
+ * @access  Private (Drivers can start their own runs, Admin/Dispatcher can start any)
  */
-router.post('/:id/start', requireAdminOrDispatcher, runsController.startRun);
+router.post('/:id/start', runsController.startRun);
 
 /**
  * @route   POST /api/v1/runs/:id/complete
  * @desc    Complete delivery run
- * @access  Admin, Dispatcher
+ * @access  Private (Drivers can complete their own runs, Admin/Dispatcher can complete any)
  */
-router.post('/:id/complete', requireAdminOrDispatcher, runsController.completeRun);
+router.post('/:id/complete', runsController.completeRun);
 
 export default router;

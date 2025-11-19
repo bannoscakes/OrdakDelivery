@@ -73,7 +73,7 @@ export const createRun = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const getRun = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
 
   const run = await runsService.getRunById(id);
 
@@ -96,7 +96,7 @@ export const listRuns = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const updateRun = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
   const { body } = updateRunSchema.parse({ body: req.body });
 
   const run = await runsService.updateRun(id, body);
@@ -108,7 +108,7 @@ export const updateRun = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const deleteRun = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
 
   await runsService.deleteRun(id);
 
@@ -116,7 +116,7 @@ export const deleteRun = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const assignOrders = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
   const { body } = assignOrdersSchema.parse({ body: req.body });
 
   await runsService.assignOrders(id, body.orderIds);
@@ -128,7 +128,7 @@ export const assignOrders = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const unassignOrders = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
   const { body } = assignOrdersSchema.parse({ body: req.body });
 
   await runsService.unassignOrders(id, body.orderIds);
@@ -140,7 +140,7 @@ export const unassignOrders = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const optimizeRun = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
   const { body } = optimizeRunSchema.parse({ body: req.body });
 
   const solution = await runsService.optimizeRun(id, body.startLocation, body.endLocation);
@@ -152,7 +152,20 @@ export const optimizeRun = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const startRun = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
+
+  // Authorization: Drivers can only start their own runs, Admin/Dispatcher can start any
+  if (req.user?.role === 'DRIVER') {
+    const run = await runsService.getRunById(id);
+    if (!run.driver || run.driver.userId !== req.user.id) {
+      res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: 'Drivers can only start their own assigned runs',
+      });
+      return;
+    }
+  }
 
   const run = await runsService.startRun(id);
 
@@ -163,7 +176,20 @@ export const startRun = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const completeRun = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
+
+  // Authorization: Drivers can only complete their own runs, Admin/Dispatcher can complete any
+  if (req.user?.role === 'DRIVER') {
+    const run = await runsService.getRunById(id);
+    if (!run.driver || run.driver.userId !== req.user.id) {
+      res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: 'Drivers can only complete their own assigned runs',
+      });
+      return;
+    }
+  }
 
   const run = await runsService.completeRun(id);
 
