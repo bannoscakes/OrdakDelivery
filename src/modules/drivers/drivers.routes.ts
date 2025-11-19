@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as driversController from './drivers.controller';
-import { authenticate } from '@/middleware/authenticate';
+import { authenticate } from '@/middleware/auth.middleware';
 
 const router = Router();
 
