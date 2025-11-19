@@ -167,7 +167,11 @@ export const submitProofOfDelivery = asyncHandler(async (req: Request, res: Resp
   const id = req.params['id']!;
   const { body } = submitProofOfDeliverySchema.parse({ body: req.body });
 
-  const order = await ordersService.submitProofOfDelivery(id, body);
+  // Authorization is handled in service layer to prevent TOCTOU vulnerability
+  const order = await ordersService.submitProofOfDelivery(id, body, {
+    id: req.user!.id,
+    role: req.user!.role,
+  });
 
   res.status(200).json({
     success: true,
@@ -178,7 +182,11 @@ export const submitProofOfDelivery = asyncHandler(async (req: Request, res: Resp
 export const markAsDelivered = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params['id']!;
 
-  const order = await ordersService.markAsDelivered(id);
+  // Authorization is handled in service layer to prevent TOCTOU vulnerability
+  const order = await ordersService.markAsDelivered(id, {
+    id: req.user!.id,
+    role: req.user!.role,
+  });
 
   res.status(200).json({
     success: true,
@@ -190,7 +198,11 @@ export const markAsFailed = asyncHandler(async (req: Request, res: Response) => 
   const id = req.params['id']!;
   const { failureReason } = req.body;
 
-  const order = await ordersService.markAsFailed(id, failureReason);
+  // Authorization is handled in service layer to prevent TOCTOU vulnerability
+  const order = await ordersService.markAsFailed(id, failureReason, {
+    id: req.user!.id,
+    role: req.user!.role,
+  });
 
   res.status(200).json({
     success: true,
