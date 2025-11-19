@@ -10,7 +10,7 @@ router.use(authenticate);
 /**
  * @route   POST /api/v1/runs
  * @desc    Create a new delivery run
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
 router.post('/', requireAdminOrDispatcher, runsController.createRun);
 
@@ -31,35 +31,35 @@ router.get('/:id', runsController.getRun);
 /**
  * @route   PUT /api/v1/runs/:id
  * @desc    Update delivery run
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
 router.put('/:id', requireAdminOrDispatcher, runsController.updateRun);
 
 /**
  * @route   DELETE /api/v1/runs/:id
  * @desc    Delete delivery run
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
 router.delete('/:id', requireAdminOrDispatcher, runsController.deleteRun);
 
 /**
  * @route   POST /api/v1/runs/:id/assign
  * @desc    Assign orders to delivery run
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
 router.post('/:id/assign', requireAdminOrDispatcher, runsController.assignOrders);
 
 /**
  * @route   POST /api/v1/runs/:id/unassign
  * @desc    Unassign orders from delivery run
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
 router.post('/:id/unassign', requireAdminOrDispatcher, runsController.unassignOrders);
 
 /**
  * @route   POST /api/v1/runs/:id/optimize
  * @desc    Optimize delivery run using Mapbox Optimization API
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
 router.post('/:id/optimize', requireAdminOrDispatcher, runsController.optimizeRun);
 

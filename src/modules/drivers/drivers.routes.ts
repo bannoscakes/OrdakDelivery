@@ -10,7 +10,7 @@ router.use(authenticate);
 /**
  * @route   POST /api/v1/drivers
  * @desc    Create a new driver
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
 router.post('/', requireAdminOrDispatcher, driversController.createDriver);
 
@@ -38,14 +38,14 @@ router.get('/:id', driversController.getDriver);
 /**
  * @route   PUT /api/v1/drivers/:id
  * @desc    Update driver
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
 router.put('/:id', requireAdminOrDispatcher, driversController.updateDriver);
 
 /**
  * @route   DELETE /api/v1/drivers/:id
  * @desc    Delete driver
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
 router.delete('/:id', requireAdminOrDispatcher, driversController.deleteDriver);
 

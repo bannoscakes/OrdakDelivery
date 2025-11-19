@@ -1,0 +1,216 @@
+-- Migration: 005_create_functions_and_triggers.sql
+-- Description: Create database functions and triggers for automation
+-- Created: 2024-11-18
+
+-- =====================================================
+-- AUTO-UPDATE TIMESTAMPS
+-- =====================================================
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Apply to all tables with updated_at
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_drivers_updated_at BEFORE UPDATE ON drivers
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_vehicles_updated_at BEFORE UPDATE ON vehicles
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_customers_updated_at BEFORE UPDATE ON customers
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_addresses_updated_at BEFORE UPDATE ON addresses
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_delivery_runs_updated_at BEFORE UPDATE ON delivery_runs
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- =====================================================
+-- AUTO-GENERATE ORDER NUMBERS
+-- =====================================================
+CREATE OR REPLACE FUNCTION generate_order_number()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.order_number IS NULL OR NEW.order_number = '' THEN
+    NEW.order_number := 'ORD-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' ||
+                        LPAD(NEXTVAL('order_number_seq')::TEXT, 6, '0');
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER generate_order_number_trigger
+  BEFORE INSERT ON orders
+  FOR EACH ROW EXECUTE FUNCTION generate_order_number();
+
+-- =====================================================
+-- AUTO-GENERATE RUN NUMBERS
+-- =====================================================
+CREATE OR REPLACE FUNCTION generate_run_number()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.run_number IS NULL OR NEW.run_number = '' THEN
+    NEW.run_number := 'RUN-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' ||
+                      LPAD(NEXTVAL('run_number_seq')::TEXT, 4, '0');
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER generate_run_number_trigger
+  BEFORE INSERT ON delivery_runs
+  FOR EACH ROW EXECUTE FUNCTION generate_run_number();
+
+-- =====================================================
+-- UPDATE DRIVER LOCATION IN DRIVERS TABLE
+-- =====================================================
+CREATE OR REPLACE FUNCTION update_driver_location()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE drivers
+  SET
+    current_location = NEW.location,
+    last_location_update = NEW.recorded_at
+  WHERE id = NEW.driver_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_driver_location_trigger
+  AFTER INSERT ON location_tracking
+  FOR EACH ROW EXECUTE FUNCTION update_driver_location();
+
+-- =====================================================
+-- UPDATE RUN STATISTICS (OPTIMIZED - INCREMENTAL)
+-- =====================================================
+CREATE OR REPLACE FUNCTION update_run_stats()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    -- Increment total_orders
+    UPDATE delivery_runs
+    SET total_orders = total_orders + 1,
+        delivered_orders = delivered_orders + CASE WHEN NEW.status = 'delivered' THEN 1 ELSE 0 END,
+        failed_orders = failed_orders + CASE WHEN NEW.status = 'failed' THEN 1 ELSE 0 END
+    WHERE id = NEW.run_id;
+  ELSIF TG_OP = 'UPDATE' THEN
+    -- Handle run_id change (order moved to different run)
+    IF OLD.run_id IS DISTINCT FROM NEW.run_id THEN
+      -- Decrement old run
+      UPDATE delivery_runs
+      SET total_orders = GREATEST(total_orders - 1, 0),
+          delivered_orders = GREATEST(delivered_orders - CASE WHEN OLD.status = 'delivered' THEN 1 ELSE 0 END, 0),
+          failed_orders = GREATEST(failed_orders - CASE WHEN OLD.status = 'failed' THEN 1 ELSE 0 END, 0)
+      WHERE id = OLD.run_id;
+      -- Increment new run
+      UPDATE delivery_runs
+      SET total_orders = total_orders + 1,
+          delivered_orders = delivered_orders + CASE WHEN NEW.status = 'delivered' THEN 1 ELSE 0 END,
+          failed_orders = failed_orders + CASE WHEN NEW.status = 'failed' THEN 1 ELSE 0 END
+      WHERE id = NEW.run_id;
+    -- Handle status change only
+    ELSIF OLD.status IS DISTINCT FROM NEW.status THEN
+      UPDATE delivery_runs
+      SET delivered_orders = delivered_orders
+                           - CASE WHEN OLD.status = 'delivered' THEN 1 ELSE 0 END
+                           + CASE WHEN NEW.status = 'delivered' THEN 1 ELSE 0 END,
+          failed_orders = failed_orders
+                        - CASE WHEN OLD.status = 'failed' THEN 1 ELSE 0 END
+                        + CASE WHEN NEW.status = 'failed' THEN 1 ELSE 0 END
+      WHERE id = NEW.run_id;
+    END IF;
+  ELSIF TG_OP = 'DELETE' THEN
+    -- Decrement counts
+    UPDATE delivery_runs
+    SET total_orders = GREATEST(total_orders - 1, 0),
+        delivered_orders = GREATEST(delivered_orders - CASE WHEN OLD.status = 'delivered' THEN 1 ELSE 0 END, 0),
+        failed_orders = GREATEST(failed_orders - CASE WHEN OLD.status = 'failed' THEN 1 ELSE 0 END, 0)
+    WHERE id = OLD.run_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_run_stats_trigger
+  AFTER INSERT OR UPDATE OR DELETE ON run_orders
+  FOR EACH ROW EXECUTE FUNCTION update_run_stats();
+
+-- =====================================================
+-- UPDATE CUSTOMER ORDER COUNT
+-- =====================================================
+CREATE OR REPLACE FUNCTION update_customer_order_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    -- Guard against NULL customer_id (guest orders or orders without customer)
+    IF NEW.customer_id IS NOT NULL THEN
+      UPDATE customers
+      SET total_orders = total_orders + 1
+      WHERE id = NEW.customer_id;
+    END IF;
+  ELSIF TG_OP = 'DELETE' THEN
+    -- Guard against NULL customer_id
+    IF OLD.customer_id IS NOT NULL THEN
+      UPDATE customers
+      SET total_orders = GREATEST(total_orders - 1, 0)
+      WHERE id = OLD.customer_id;
+    END IF;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_customer_order_count_trigger
+  AFTER INSERT OR DELETE ON orders
+  FOR EACH ROW EXECUTE FUNCTION update_customer_order_count();
+
+-- =====================================================
+-- AUTO-UPDATE ORDER STATUS WHEN DELIVERED
+-- =====================================================
+CREATE OR REPLACE FUNCTION update_order_status_on_pod()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE orders
+  SET
+    status = 'delivered',
+    actual_delivery_time = NEW.delivered_at
+  WHERE id = NEW.order_id;
+
+  UPDATE run_orders
+  SET status = 'delivered'
+  WHERE order_id = NEW.order_id;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_order_status_on_pod_trigger
+  AFTER INSERT ON proof_of_delivery
+  FOR EACH ROW EXECUTE FUNCTION update_order_status_on_pod();
+
+-- =====================================================
+-- UPDATE DRIVER TOTAL DELIVERIES
+-- =====================================================
+CREATE OR REPLACE FUNCTION update_driver_total_deliveries()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE drivers
+  SET total_deliveries = total_deliveries + 1
+  WHERE id = NEW.driver_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_driver_total_deliveries_trigger
+  AFTER INSERT ON proof_of_delivery
+  FOR EACH ROW EXECUTE FUNCTION update_driver_total_deliveries();

@@ -37,7 +37,13 @@ const refreshTokenValidation = [
 
 const changePasswordValidation = [
   body('currentPassword').isString().notEmpty(),
-  body('newPassword').isString().isLength({ min: 8 }),
+  body('newPassword')
+    .isString()
+    .isLength({ min: 8 })
+    .matches(/[A-Z]/, 'g').withMessage('Password must contain at least one uppercase letter')
+    .matches(/[a-z]/, 'g').withMessage('Password must contain at least one lowercase letter')
+    .matches(/[0-9]/, 'g').withMessage('Password must contain at least one number')
+    .matches(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'g').withMessage('Password must contain at least one special character'),
   validate,
 ];
 
