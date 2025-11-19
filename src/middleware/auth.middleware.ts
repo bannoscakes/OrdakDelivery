@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt.util';
 import { prisma } from '../lib/prisma';
 import { AuthUser } from '../types/auth.types';
+import logger from '../config/logger';
 
 export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -54,9 +55,11 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     next();
   } catch (error) {
+    // Security: Log error details server-side only, don't expose to client
+    logger.error('Authentication error:', error);
     res.status(401).json({
       error: 'Authentication failed',
-      message: error instanceof Error ? error.message : 'Invalid token',
+      message: 'Invalid or expired token',
     });
   }
 };
@@ -95,3 +98,39 @@ export const optionalAuthenticate = async (req: Request, _res: Response, next: N
     next();
   }
 };
+
+/**
+ * Role-based authorization middleware
+ * Requires authenticate middleware to run first
+ */
+export const requireRole = (...allowedRoles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({
+        error: 'Authentication required',
+        message: 'You must be logged in to access this resource',
+      });
+      return;
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      res.status(403).json({
+        error: 'Forbidden',
+        message: `This action requires one of the following roles: ${allowedRoles.join(', ')}`,
+      });
+      return;
+    }
+
+    next();
+  };
+};
+
+/**
+ * Convenience middleware for admin-only endpoints
+ */
+export const requireAdmin = requireRole('ADMIN');
+
+/**
+ * Convenience middleware for admin or dispatcher
+ */
+export const requireAdminOrDispatcher = requireRole('ADMIN', 'DISPATCHER');

@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import * as driversController from './drivers.controller';
-import { authenticate } from '@/middleware/auth.middleware';
-import { requireDispatcher } from '@/middleware/role.middleware';
+import { authenticate, requireAdminOrDispatcher } from '@/middleware/auth.middleware';
 
 const router = Router();
 
@@ -11,9 +10,9 @@ router.use(authenticate);
 /**
  * @route   POST /api/v1/drivers
  * @desc    Create a new driver
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
-router.post('/', requireDispatcher, driversController.createDriver);
+router.post('/', requireAdminOrDispatcher, driversController.createDriver);
 
 /**
  * @route   GET /api/v1/drivers
@@ -39,15 +38,15 @@ router.get('/:id', driversController.getDriver);
 /**
  * @route   PUT /api/v1/drivers/:id
  * @desc    Update driver
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
-router.put('/:id', requireDispatcher, driversController.updateDriver);
+router.put('/:id', requireAdminOrDispatcher, driversController.updateDriver);
 
 /**
  * @route   DELETE /api/v1/drivers/:id
  * @desc    Delete driver
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
-router.delete('/:id', requireDispatcher, driversController.deleteDriver);
+router.delete('/:id', requireAdminOrDispatcher, driversController.deleteDriver);
 
 export default router;
