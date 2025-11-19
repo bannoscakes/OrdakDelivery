@@ -3,9 +3,11 @@ import { ordersApi } from '../api';
 import { formatDate } from '../utils/date';
 
 export function Orders() {
+  const limit = 50;
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['orders'],
-    queryFn: () => ordersApi.list({ limit: 50 }),
+    queryKey: ['orders', { limit }],
+    queryFn: () => ordersApi.list({ limit }),
   });
 
   return (

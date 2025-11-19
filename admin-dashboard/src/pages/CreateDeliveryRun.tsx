@@ -63,7 +63,12 @@ export function CreateDeliveryRun() {
     <div className="create-delivery-run-page">
       <div className="page-header">
         <h1>Create Delivery Run</h1>
-        <button type="button" onClick={() => navigate('/runs')} className="btn btn-secondary">
+        <button
+          type="button"
+          onClick={() => !createRunMutation.isPending && navigate('/runs')}
+          className="btn btn-secondary"
+          disabled={createRunMutation.isPending}
+        >
           Cancel
         </button>
       </div>
