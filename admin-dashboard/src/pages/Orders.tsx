@@ -19,7 +19,7 @@ export function Orders() {
 
       {data && (
         <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
-          <p>Total orders: {data.data.length}</p>
+          <p>Total orders: {data.pagination.total} (showing {data.data.length})</p>
           <div style={{ marginTop: '20px' }}>
             {data.data.map((order) => (
               <div

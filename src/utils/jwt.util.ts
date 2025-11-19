@@ -2,8 +2,16 @@ import jwt from 'jsonwebtoken';
 import { JWTPayload, TokenPair } from '../types/auth.types';
 import { UserRole } from '@prisma/client';
 
-const ACCESS_TOKEN_SECRET = process.env['JWT_ACCESS_SECRET'] || 'your-access-token-secret-change-in-production';
-const REFRESH_TOKEN_SECRET = process.env['JWT_REFRESH_SECRET'] || 'your-refresh-token-secret-change-in-production';
+// Security: JWT secrets are required - fail fast if not configured
+if (!process.env['JWT_ACCESS_SECRET']) {
+  throw new Error('JWT_ACCESS_SECRET environment variable is required');
+}
+if (!process.env['JWT_REFRESH_SECRET']) {
+  throw new Error('JWT_REFRESH_SECRET environment variable is required');
+}
+
+const ACCESS_TOKEN_SECRET = process.env['JWT_ACCESS_SECRET'];
+const REFRESH_TOKEN_SECRET = process.env['JWT_REFRESH_SECRET'];
 
 const ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutes
 const REFRESH_TOKEN_EXPIRY = '7d'; // 7 days

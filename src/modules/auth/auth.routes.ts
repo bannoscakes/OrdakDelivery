@@ -13,7 +13,8 @@ const registerValidation = [
   body('firstName').isString().trim().notEmpty(),
   body('lastName').isString().trim().notEmpty(),
   body('phone').optional().isString(),
-  body('role').isIn(['ADMIN', 'DISPATCHER', 'DRIVER']),
+  // Security: role field removed - new users always get DRIVER role
+  // Privileged roles must be assigned through admin-only user management
   validate,
 ];
 

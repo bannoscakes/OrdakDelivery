@@ -29,9 +29,10 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized - clear token and redirect to login
+      // Handle unauthorized - clear token
       localStorage.removeItem('authToken');
-      window.location.href = '/login';
+      // TODO: Redirect to login page once implemented
+      console.warn('Unauthorized: Please set a valid token in localStorage');
     }
     return Promise.reject(error);
   }

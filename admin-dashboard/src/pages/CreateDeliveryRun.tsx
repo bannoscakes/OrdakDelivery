@@ -92,8 +92,10 @@ export function CreateDeliveryRun() {
             <input
               id="scheduledDate"
               type="date"
-              {...register('scheduledDate', { required: 'Scheduled date is required' })}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              {...register('scheduledDate', {
+                required: 'Scheduled date is required',
+                onChange: (e) => setSelectedDate(e.target.value),
+              })}
             />
             {errors.scheduledDate && (
               <span className="error-message">{errors.scheduledDate.message}</span>
