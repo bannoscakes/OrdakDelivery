@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as ordersController from './orders.controller';
-import { authenticate } from '@/middleware/authenticate';
+import { authenticate } from '@/middleware/auth.middleware';
+import { requireDispatcher } from '@/middleware/role.middleware';
 
 const router = Router();
 
@@ -10,9 +11,9 @@ router.use(authenticate);
 /**
  * @route   POST /api/v1/orders
  * @desc    Create a new order
- * @access  Private
+ * @access  Private (Admin, Dispatcher only)
  */
-router.post('/', ordersController.createOrder);
+router.post('/', requireDispatcher, ordersController.createOrder);
 
 /**
  * @route   GET /api/v1/orders
@@ -38,15 +39,15 @@ router.get('/:id', ordersController.getOrder);
 /**
  * @route   PUT /api/v1/orders/:id
  * @desc    Update order
- * @access  Private
+ * @access  Private (Admin, Dispatcher only)
  */
-router.put('/:id', ordersController.updateOrder);
+router.put('/:id', requireDispatcher, ordersController.updateOrder);
 
 /**
  * @route   DELETE /api/v1/orders/:id
  * @desc    Delete order
- * @access  Private
+ * @access  Private (Admin, Dispatcher only)
  */
-router.delete('/:id', ordersController.deleteOrder);
+router.delete('/:id', requireDispatcher, ordersController.deleteOrder);
 
 export default router;

@@ -101,7 +101,7 @@ export const createOrder = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const getOrder = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
 
   const order = await ordersService.getOrderById(id);
 
@@ -124,7 +124,7 @@ export const listOrders = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const updateOrder = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
   const { body } = updateOrderSchema.parse({ body: req.body });
 
   const order = await ordersService.updateOrder(id, body);
@@ -136,7 +136,7 @@ export const updateOrder = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const deleteOrder = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
 
   await ordersService.deleteOrder(id);
 

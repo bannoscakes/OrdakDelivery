@@ -2,8 +2,8 @@ import prisma from '@config/database';
 import logger from '@config/logger';
 import { AppError, createAppError } from '@/middleware/errorHandler';
 import { Order, OrderType, OrderStatus, Prisma } from '@prisma/client';
-import type { CreateOrderInput, UpdateOrderInput, OrderItem } from './orders.types';
-import { MAX_PAGINATION_LIMIT, DEFAULT_PAGINATION_LIMIT } from '@/constants/pagination';
+import type { CreateOrderInput, UpdateOrderInput } from './orders.types';
+import { normalizePagination } from '@/utils/pagination';
 import { geocodeAddressToWKT } from '@/utils/geocoding';
 
 export class OrdersService {
@@ -61,7 +61,7 @@ export class OrdersService {
           scheduledDate: input.scheduledDate,
           timeWindowStart: input.timeWindowStart,
           timeWindowEnd: input.timeWindowEnd,
-          items: input.items as Prisma.InputJsonValue,
+          items: input.items as unknown as Prisma.InputJsonValue,
           notes: input.notes,
           specialInstructions: input.specialInstructions,
         },

@@ -157,7 +157,7 @@ export function CreateDeliveryRun() {
                   <input
                     type="checkbox"
                     checked={selectedOrderIds.includes(order.id)}
-                    onChange={() => {}}
+                    readOnly
                   />
                   <div className="order-info">
                     <div className="order-number">{order.orderNumber}</div>

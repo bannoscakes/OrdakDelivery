@@ -32,6 +32,7 @@ apiClient.interceptors.response.use(
       // Handle unauthorized - clear token
       localStorage.removeItem('authToken');
       // TODO: Redirect to login page once implemented
+      // Should use React Router navigation callback instead of window.location.href
       console.warn('Unauthorized: Please set a valid token in localStorage');
     }
     return Promise.reject(error);
