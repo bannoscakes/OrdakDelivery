@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as vehiclesController from './vehicles.controller';
-import { authenticate } from '@/middleware/auth.middleware';
+import { authenticate, requireAdminOrDispatcher } from '@/middleware/auth.middleware';
 
 const router = Router();
 
@@ -10,9 +10,9 @@ router.use(authenticate);
 /**
  * @route   POST /api/v1/vehicles
  * @desc    Create a new vehicle
- * @access  Private
+ * @access  Admin, Dispatcher
  */
-router.post('/', vehiclesController.createVehicle);
+router.post('/', requireAdminOrDispatcher, vehiclesController.createVehicle);
 
 /**
  * @route   GET /api/v1/vehicles
@@ -38,15 +38,15 @@ router.get('/:id', vehiclesController.getVehicle);
 /**
  * @route   PUT /api/v1/vehicles/:id
  * @desc    Update vehicle
- * @access  Private
+ * @access  Admin, Dispatcher
  */
-router.put('/:id', vehiclesController.updateVehicle);
+router.put('/:id', requireAdminOrDispatcher, vehiclesController.updateVehicle);
 
 /**
  * @route   DELETE /api/v1/vehicles/:id
  * @desc    Delete vehicle
- * @access  Private
+ * @access  Admin, Dispatcher
  */
-router.delete('/:id', vehiclesController.deleteVehicle);
+router.delete('/:id', requireAdminOrDispatcher, vehiclesController.deleteVehicle);
 
 export default router;

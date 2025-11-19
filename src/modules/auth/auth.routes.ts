@@ -20,7 +20,7 @@ const registerValidation = [
   body('lastName').isString().trim().notEmpty(),
   body('phone').optional().isString(),
   // Security: role field removed - new users always get DRIVER role
-  // Privileged roles must be assigned through admin-only user management
+  // Privileged roles must be created through POST /api/v1/users (Admin-only endpoint)
   validate,
 ];
 

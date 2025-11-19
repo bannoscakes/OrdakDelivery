@@ -32,7 +32,7 @@ export class AuthService {
 
     // Create user
     // Security: Always default new registrations to DRIVER role to prevent privilege escalation
-    // Admins and dispatchers should be created through admin-only user management endpoints
+    // Admins and dispatchers must be created through POST /api/v1/users (Admin-only endpoint)
     const user = await prisma.user.create({
       data: {
         email: data.email,
