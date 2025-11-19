@@ -67,7 +67,7 @@ COMMENT ON COLUMN vehicles.status IS 'Vehicle status: active (in use), maintenan
 -- =====================================================
 CREATE TABLE drivers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
   driver_license VARCHAR(50) NOT NULL UNIQUE,
   license_expiry DATE NOT NULL,
   vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
@@ -83,7 +83,7 @@ CREATE TABLE drivers (
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
-CREATE INDEX idx_drivers_user_id ON drivers(user_id);
+-- Note: user_id has UNIQUE constraint which automatically creates an index
 CREATE INDEX idx_drivers_status ON drivers(status);
 CREATE INDEX idx_drivers_vehicle_id ON drivers(vehicle_id);
 CREATE INDEX idx_drivers_current_location ON drivers USING GIST(current_location);

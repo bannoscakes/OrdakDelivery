@@ -126,6 +126,40 @@ CREATE TABLE audit_logs_2025_01 PARTITION OF audit_logs
 CREATE TABLE audit_logs_2025_02 PARTITION OF audit_logs
   FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
 
+-- =====================================================
+-- AUDIT LOG RETENTION AND ARCHIVAL REQUIREMENTS
+-- =====================================================
+-- ⚠️ LEGAL COMPLIANCE NOTICE:
+-- Audit log partitions are LEGAL RECORDS and must be handled according to compliance requirements.
+--
+-- DEFAULT RETENTION PERIOD: 7 years (adjust based on your jurisdiction)
+--
+-- PARTITION LIFECYCLE:
+-- 1. Active partitions: Current month + 2 future months (keep in primary database)
+-- 2. Historical partitions: Previous months up to retention period (archive to cold storage)
+-- 3. Expired partitions: Older than retention period (archive, then drop)
+--
+-- ARCHIVAL PROCEDURE (REQUIRED before dropping any partition):
+-- 1. Export partition to immutable cold storage (e.g., AWS S3 Glacier with Object Lock)
+-- 2. Verify export integrity (checksum validation)
+-- 3. Document archive location and retrieval procedure
+-- 4. Only then detach/drop the partition from primary database
+--
+-- COMPLIANCE CHECKLIST:
+-- □ Exported to immutable storage (no delete/modify capability)
+-- □ Checksum verified and stored separately
+-- □ Archive indexed for legal discovery/audit requests
+-- □ Retention period documented in compliance register
+-- □ Access logs enabled on archive storage
+--
+-- See database/README.md for detailed archive/detach procedures and compliance documentation.
+--
+-- MONTHLY MAINTENANCE (required):
+-- - Create new partitions 3 months ahead
+-- - Archive and detach partitions older than active window
+-- - Never drop partitions without archiving first
+-- =====================================================
+
 -- Indexes
 CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id, created_at DESC);
 CREATE INDEX idx_audit_logs_user ON audit_logs(user_id, created_at DESC) WHERE user_id IS NOT NULL;

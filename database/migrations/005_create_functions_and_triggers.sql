@@ -91,25 +91,58 @@ CREATE TRIGGER update_driver_location_trigger
   FOR EACH ROW EXECUTE FUNCTION update_driver_location();
 
 -- =====================================================
--- UPDATE RUN STATISTICS
+-- UPDATE RUN STATISTICS (OPTIMIZED - INCREMENTAL)
 -- =====================================================
 CREATE OR REPLACE FUNCTION update_run_stats()
 RETURNS TRIGGER AS $$
 BEGIN
-  UPDATE delivery_runs
-  SET
-    total_orders = (SELECT COUNT(*) FROM run_orders WHERE run_id = NEW.run_id),
-    delivered_orders = (SELECT COUNT(*) FROM run_orders
-                        WHERE run_id = NEW.run_id AND status = 'delivered'),
-    failed_orders = (SELECT COUNT(*) FROM run_orders
-                     WHERE run_id = NEW.run_id AND status = 'failed')
-  WHERE id = NEW.run_id;
+  IF TG_OP = 'INSERT' THEN
+    -- Increment total_orders
+    UPDATE delivery_runs
+    SET total_orders = total_orders + 1,
+        delivered_orders = delivered_orders + CASE WHEN NEW.status = 'delivered' THEN 1 ELSE 0 END,
+        failed_orders = failed_orders + CASE WHEN NEW.status = 'failed' THEN 1 ELSE 0 END
+    WHERE id = NEW.run_id;
+  ELSIF TG_OP = 'UPDATE' THEN
+    -- Handle run_id change (order moved to different run)
+    IF OLD.run_id IS DISTINCT FROM NEW.run_id THEN
+      -- Decrement old run
+      UPDATE delivery_runs
+      SET total_orders = GREATEST(total_orders - 1, 0),
+          delivered_orders = GREATEST(delivered_orders - CASE WHEN OLD.status = 'delivered' THEN 1 ELSE 0 END, 0),
+          failed_orders = GREATEST(failed_orders - CASE WHEN OLD.status = 'failed' THEN 1 ELSE 0 END, 0)
+      WHERE id = OLD.run_id;
+      -- Increment new run
+      UPDATE delivery_runs
+      SET total_orders = total_orders + 1,
+          delivered_orders = delivered_orders + CASE WHEN NEW.status = 'delivered' THEN 1 ELSE 0 END,
+          failed_orders = failed_orders + CASE WHEN NEW.status = 'failed' THEN 1 ELSE 0 END
+      WHERE id = NEW.run_id;
+    -- Handle status change only
+    ELSIF OLD.status IS DISTINCT FROM NEW.status THEN
+      UPDATE delivery_runs
+      SET delivered_orders = delivered_orders
+                           - CASE WHEN OLD.status = 'delivered' THEN 1 ELSE 0 END
+                           + CASE WHEN NEW.status = 'delivered' THEN 1 ELSE 0 END,
+          failed_orders = failed_orders
+                        - CASE WHEN OLD.status = 'failed' THEN 1 ELSE 0 END
+                        + CASE WHEN NEW.status = 'failed' THEN 1 ELSE 0 END
+      WHERE id = NEW.run_id;
+    END IF;
+  ELSIF TG_OP = 'DELETE' THEN
+    -- Decrement counts
+    UPDATE delivery_runs
+    SET total_orders = GREATEST(total_orders - 1, 0),
+        delivered_orders = GREATEST(delivered_orders - CASE WHEN OLD.status = 'delivered' THEN 1 ELSE 0 END, 0),
+        failed_orders = GREATEST(failed_orders - CASE WHEN OLD.status = 'failed' THEN 1 ELSE 0 END, 0)
+    WHERE id = OLD.run_id;
+  END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_run_stats_trigger
-  AFTER INSERT OR UPDATE ON run_orders
+  AFTER INSERT OR UPDATE OR DELETE ON run_orders
   FOR EACH ROW EXECUTE FUNCTION update_run_stats();
 
 -- =====================================================
@@ -119,13 +152,19 @@ CREATE OR REPLACE FUNCTION update_customer_order_count()
 RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    UPDATE customers
-    SET total_orders = total_orders + 1
-    WHERE id = NEW.customer_id;
+    -- Guard against NULL customer_id (guest orders or orders without customer)
+    IF NEW.customer_id IS NOT NULL THEN
+      UPDATE customers
+      SET total_orders = total_orders + 1
+      WHERE id = NEW.customer_id;
+    END IF;
   ELSIF TG_OP = 'DELETE' THEN
-    UPDATE customers
-    SET total_orders = GREATEST(total_orders - 1, 0)
-    WHERE id = OLD.customer_id;
+    -- Guard against NULL customer_id
+    IF OLD.customer_id IS NOT NULL THEN
+      UPDATE customers
+      SET total_orders = GREATEST(total_orders - 1, 0)
+      WHERE id = OLD.customer_id;
+    END IF;
   END IF;
   RETURN NULL;
 END;

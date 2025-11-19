@@ -164,6 +164,23 @@ CREATE POLICY "Drivers can update their assigned orders" ON orders
       WHERE ro.order_id = orders.id
         AND d.user_id = auth.uid()
     )
+  )
+  WITH CHECK (
+    -- Drivers can only modify status, notes, and failure fields
+    -- All critical fields must remain unchanged
+    OLD.order_number IS NOT DISTINCT FROM NEW.order_number AND
+    OLD.customer_id IS NOT DISTINCT FROM NEW.customer_id AND
+    OLD.delivery_address_id IS NOT DISTINCT FROM NEW.delivery_address_id AND
+    OLD.subtotal IS NOT DISTINCT FROM NEW.subtotal AND
+    OLD.delivery_fee IS NOT DISTINCT FROM NEW.delivery_fee AND
+    OLD.tax IS NOT DISTINCT FROM NEW.tax AND
+    OLD.total IS NOT DISTINCT FROM NEW.total AND
+    OLD.priority IS NOT DISTINCT FROM NEW.priority AND
+    OLD.external_order_id IS NOT DISTINCT FROM NEW.external_order_id AND
+    OLD.external_system IS NOT DISTINCT FROM NEW.external_system AND
+    -- Status can only transition to approved states
+    (NEW.status IN ('in_transit', 'delivered', 'failed') OR
+     OLD.status IS NOT DISTINCT FROM NEW.status)
   );
 
 -- =====================================================
@@ -315,9 +332,11 @@ CREATE POLICY "Users can update their own notifications" ON notifications
   WITH CHECK (user_id = auth.uid());
 
 -- System can create notifications
-CREATE POLICY "System can create notifications" ON notifications
+-- Security: Restrict notification creation to prevent cross-user notification spam/impersonation
+-- Users can only create notifications for themselves; backend uses service_role to create for others
+CREATE POLICY "Users can create their own notifications" ON notifications
   FOR INSERT TO authenticated
-  WITH CHECK (true);
+  WITH CHECK (user_id = auth.uid());
 
 -- =====================================================
 -- AUDIT_LOGS TABLE POLICIES
@@ -330,7 +349,7 @@ CREATE POLICY "Only admins can view audit logs" ON audit_logs
     EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
   );
 
--- System can create audit logs
-CREATE POLICY "System can create audit logs" ON audit_logs
-  FOR INSERT TO authenticated
-  WITH CHECK (true);
+-- Security: No insert policy for authenticated users - audit logs are created by:
+-- 1. Backend service using service_role (bypasses RLS)
+-- 2. Database triggers (bypass RLS)
+-- This prevents users from forging or flooding audit records
