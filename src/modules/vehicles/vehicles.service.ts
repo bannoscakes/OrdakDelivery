@@ -2,7 +2,6 @@ import prisma from '@config/database';
 import logger from '@config/logger';
 import { AppError, createAppError } from '@/middleware/errorHandler';
 import { Vehicle, VehicleType, Prisma } from '@prisma/client';
-import { MAX_PAGINATION_LIMIT, DEFAULT_PAGINATION_LIMIT } from '@/constants/pagination';
 import { getBusyResourceIds} from '@/utils/availability';
 import { MS_PER_WEEK } from '@/constants/time';
 import { normalizePagination } from '@/utils/pagination';
@@ -115,10 +114,6 @@ export class VehiclesService {
     page?: number;
     limit?: number;
   }) {
-    const page = params.page || 1;
-    // Cap limit at MAX_PAGINATION_LIMIT to prevent abuse
-    const limit = Math.min(params.limit || DEFAULT_PAGINATION_LIMIT, MAX_PAGINATION_LIMIT);
-    const skip = (page - 1) * limit;
     const { page, limit, skip } = normalizePagination(params);
 
     const where: Prisma.VehicleWhereInput = {

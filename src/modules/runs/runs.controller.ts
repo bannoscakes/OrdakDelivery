@@ -154,20 +154,11 @@ export const optimizeRun = asyncHandler(async (req: Request, res: Response) => {
 export const startRun = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params['id']!;
 
-  // Authorization: Drivers can only start their own runs, Admin/Dispatcher can start any
-  if (req.user?.role === 'DRIVER') {
-    const run = await runsService.getRunById(id);
-    if (!run.driver || run.driver.userId !== req.user.id) {
-      res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: 'Drivers can only start their own assigned runs',
-      });
-      return;
-    }
-  }
-
-  const run = await runsService.startRun(id);
+  // Authorization is handled in service layer to prevent TOCTOU vulnerability
+  const run = await runsService.startRun(id, {
+    id: req.user!.id,
+    role: req.user!.role,
+  });
 
   res.status(200).json({
     success: true,
@@ -178,20 +169,11 @@ export const startRun = asyncHandler(async (req: Request, res: Response) => {
 export const completeRun = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params['id']!;
 
-  // Authorization: Drivers can only complete their own runs, Admin/Dispatcher can complete any
-  if (req.user?.role === 'DRIVER') {
-    const run = await runsService.getRunById(id);
-    if (!run.driver || run.driver.userId !== req.user.id) {
-      res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: 'Drivers can only complete their own assigned runs',
-      });
-      return;
-    }
-  }
-
-  const run = await runsService.completeRun(id);
+  // Authorization is handled in service layer to prevent TOCTOU vulnerability
+  const run = await runsService.completeRun(id, {
+    id: req.user!.id,
+    role: req.user!.role,
+  });
 
   res.status(200).json({
     success: true,

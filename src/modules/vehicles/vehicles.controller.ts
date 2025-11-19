@@ -64,8 +64,8 @@ export const createVehicle = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const getVehicle = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const includeRuns = req.query.includeRuns === 'true';
+  const id = req.params['id']!;
+  const includeRuns = req.query['includeRuns'] === 'true';
 
   const vehicle = await vehiclesService.getVehicleById(id, includeRuns);
 
@@ -88,7 +88,7 @@ export const listVehicles = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const updateVehicle = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
   const { body } = updateVehicleSchema.parse({ body: req.body });
 
   const vehicle = await vehiclesService.updateVehicle(id, body);
@@ -100,7 +100,7 @@ export const updateVehicle = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const deleteVehicle = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
 
   await vehiclesService.deleteVehicle(id);
 

@@ -58,8 +58,8 @@ export const createDriver = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const getDriver = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const includeRuns = req.query.includeRuns === 'true';
+  const id = req.params['id']!;
+  const includeRuns = req.query['includeRuns'] === 'true';
 
   const driver = await driversService.getDriverById(id, includeRuns);
 
@@ -82,7 +82,7 @@ export const listDrivers = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const updateDriver = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
   const { body } = updateDriverSchema.parse({ body: req.body });
 
   const driver = await driversService.updateDriver(id, body);
@@ -94,7 +94,7 @@ export const updateDriver = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const deleteDriver = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params['id']!;
 
   await driversService.deleteDriver(id);
 
