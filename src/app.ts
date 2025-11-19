@@ -18,6 +18,7 @@ import geocodingRouter from '@/modules/geocoding/geocoding.routes';
 import driversRouter from '@/modules/drivers/drivers.routes';
 import vehiclesRouter from '@/modules/vehicles/vehicles.routes';
 import runsRouter from '@/modules/runs/runs.routes';
+import realtimeRouter from '@/modules/realtime/realtime.routes';
 
 const createApp = (): Application => {
   const app = express();
@@ -79,6 +80,7 @@ const createApp = (): Application => {
   app.use(`${apiPrefix}/drivers`, driversRouter);
   app.use(`${apiPrefix}/vehicles`, vehiclesRouter);
   app.use(`${apiPrefix}/runs`, runsRouter);
+  app.use(`${apiPrefix}/realtime`, realtimeRouter);
 
   // Webhooks (no auth required - verified by HMAC, separate rate limiter)
   app.use(`${apiPrefix}/webhooks/shopify`, webhookRateLimiter, shopifyRouter);
