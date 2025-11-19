@@ -162,10 +162,10 @@ export function CreateDeliveryRun() {
                   <div className="order-info">
                     <div className="order-number">{order.orderNumber}</div>
                     <div className="order-customer">
-                      {order.customer.firstName} {order.customer.lastName}
+                      {order.customer?.firstName ?? ''} {order.customer?.lastName ?? ''}
                     </div>
                     <div className="order-address">
-                      {order.address.line1}, {order.address.city}
+                      {order.address?.line1 ?? ''}, {order.address?.city ?? ''}
                     </div>
                   </div>
                 </div>
