@@ -5,6 +5,7 @@ import { DeliveryRun, RunStatus, Prisma } from '@prisma/client';
 import { optimizationService } from '@/services/mapbox';
 import type { OptimizationSolution } from '@/services/mapbox';
 import { normalizePagination } from '@/utils/pagination';
+import { DEFAULT_SERVICE_DURATION_SECONDS } from '@/constants/time';
 
 interface CreateRunInput {
   name: string;
@@ -21,13 +22,6 @@ interface UpdateRunInput {
   vehicleId?: string;
   startTime?: Date;
   endTime?: Date;
-}
-
-interface OptimizeRunInput {
-  orderIds: string[];
-  vehicleId?: string;
-  startLocation: [number, number]; // [lon, lat]
-  endLocation?: [number, number];
 }
 
 export class RunsService {
