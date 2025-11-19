@@ -9,11 +9,18 @@ const router = Router();
 // Validation middleware
 const registerValidation = [
   body('email').isEmail().normalizeEmail(),
-  body('password').isString().isLength({ min: 8 }),
+  body('password')
+    .isString()
+    .isLength({ min: 8 })
+    .matches(/[A-Z]/, 'g').withMessage('Password must contain at least one uppercase letter')
+    .matches(/[a-z]/, 'g').withMessage('Password must contain at least one lowercase letter')
+    .matches(/[0-9]/, 'g').withMessage('Password must contain at least one number')
+    .matches(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'g').withMessage('Password must contain at least one special character'),
   body('firstName').isString().trim().notEmpty(),
   body('lastName').isString().trim().notEmpty(),
   body('phone').optional().isString(),
-  body('role').isIn(['ADMIN', 'DISPATCHER', 'DRIVER']),
+  // Security: role field removed - new users always get DRIVER role
+  // Privileged roles must be created through POST /api/v1/users (Admin-only endpoint)
   validate,
 ];
 

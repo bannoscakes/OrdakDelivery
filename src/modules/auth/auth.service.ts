@@ -31,6 +31,8 @@ export class AuthService {
     const passwordHash = await hashPassword(data.password);
 
     // Create user
+    // Security: Always default new registrations to DRIVER role to prevent privilege escalation
+    // Admins and dispatchers must be created through POST /api/v1/users (Admin-only endpoint)
     const user = await prisma.user.create({
       data: {
         email: data.email,
@@ -38,7 +40,7 @@ export class AuthService {
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
-        role: data.role,
+        role: 'DRIVER', // Security: ignore client-supplied role, default to lowest privilege
         isActive: true,
       },
       select: {

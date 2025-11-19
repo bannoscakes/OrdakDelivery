@@ -154,7 +154,11 @@ export const optimizeRun = asyncHandler(async (req: Request, res: Response) => {
 export const startRun = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params['id']!;
 
-  const run = await runsService.startRun(id);
+  // Authorization is handled in service layer to prevent TOCTOU vulnerability
+  const run = await runsService.startRun(id, {
+    id: req.user!.id,
+    role: req.user!.role,
+  });
 
   res.status(200).json({
     success: true,
@@ -165,7 +169,11 @@ export const startRun = asyncHandler(async (req: Request, res: Response) => {
 export const completeRun = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params['id']!;
 
-  const run = await runsService.completeRun(id);
+  // Authorization is handled in service layer to prevent TOCTOU vulnerability
+  const run = await runsService.completeRun(id, {
+    id: req.user!.id,
+    role: req.user!.role,
+  });
 
   res.status(200).json({
     success: true,

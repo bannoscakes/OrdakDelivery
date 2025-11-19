@@ -230,9 +230,34 @@ export class OrdersService {
       photoUrls?: string[];
       deliveryNotes?: string;
       recipientName?: string;
-    }
+    },
+    userContext: { id: string; role: string }
   ): Promise<Order> {
-    const order = await prisma.order.update({
+    // Single fetch with run and driver for authorization
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        assignedRun: {
+          include: {
+            driver: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new AppError(404, 'Order not found');
+    }
+
+    // Authorization check for DRIVER role
+    if (userContext.role === 'DRIVER') {
+      if (!order.assignedRun || !order.assignedRun.driver || order.assignedRun.driver.userId !== userContext.id) {
+        throw new AppError(403, 'Drivers can only submit POD for orders in their assigned runs');
+      }
+    }
+
+    // Update order with POD data
+    const updatedOrder = await prisma.order.update({
       where: { id },
       data: {
         status: OrderStatus.DELIVERED,
@@ -252,14 +277,38 @@ export class OrdersService {
       photoCount: data.photoUrls?.length || 0,
     });
 
-    return order;
+    return updatedOrder;
   }
 
   /**
    * Mark order as delivered (without proof)
    */
-  async markAsDelivered(id: string): Promise<Order> {
-    const order = await prisma.order.update({
+  async markAsDelivered(id: string, userContext: { id: string; role: string }): Promise<Order> {
+    // Single fetch with run and driver for authorization
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        assignedRun: {
+          include: {
+            driver: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new AppError(404, 'Order not found');
+    }
+
+    // Authorization check for DRIVER role
+    if (userContext.role === 'DRIVER') {
+      if (!order.assignedRun || !order.assignedRun.driver || order.assignedRun.driver.userId !== userContext.id) {
+        throw new AppError(403, 'Drivers can only mark orders as delivered in their assigned runs');
+      }
+    }
+
+    // Update order
+    const updatedOrder = await prisma.order.update({
       where: { id },
       data: {
         status: OrderStatus.DELIVERED,
@@ -272,14 +321,38 @@ export class OrdersService {
 
     logger.info('Order marked as delivered', { orderId: id });
 
-    return order;
+    return updatedOrder;
   }
 
   /**
    * Mark order as failed with reason
    */
-  async markAsFailed(id: string, failureReason?: string): Promise<Order> {
-    const order = await prisma.order.update({
+  async markAsFailed(id: string, failureReason: string | undefined, userContext: { id: string; role: string }): Promise<Order> {
+    // Single fetch with run and driver for authorization
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        assignedRun: {
+          include: {
+            driver: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new AppError(404, 'Order not found');
+    }
+
+    // Authorization check for DRIVER role
+    if (userContext.role === 'DRIVER') {
+      if (!order.assignedRun || !order.assignedRun.driver || order.assignedRun.driver.userId !== userContext.id) {
+        throw new AppError(403, 'Drivers can only mark orders as failed in their assigned runs');
+      }
+    }
+
+    // Update order
+    const updatedOrder = await prisma.order.update({
       where: { id },
       data: {
         status: OrderStatus.FAILED,
@@ -292,7 +365,7 @@ export class OrdersService {
 
     logger.info('Order marked as failed', { orderId: id, reason: failureReason });
 
-    return order;
+    return updatedOrder;
   }
 }
 

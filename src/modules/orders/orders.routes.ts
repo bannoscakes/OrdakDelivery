@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import * as ordersController from './orders.controller';
-import { authenticate } from '@/middleware/auth.middleware';
-import { requireDispatcher, requireDriver } from '@/middleware/role.middleware';
+import { authenticate, requireAdminOrDispatcher } from '@/middleware/auth.middleware';
 
 const router = Router();
 
@@ -13,7 +12,7 @@ router.use(authenticate);
  * @desc    Create a new order
  * @access  Private (Admin, Dispatcher only)
  */
-router.post('/', requireDispatcher, ordersController.createOrder);
+router.post('/', requireAdminOrDispatcher, ordersController.createOrder);
 
 /**
  * @route   GET /api/v1/orders
@@ -41,34 +40,34 @@ router.get('/:id', ordersController.getOrder);
  * @desc    Update order
  * @access  Private (Admin, Dispatcher only)
  */
-router.put('/:id', requireDispatcher, ordersController.updateOrder);
+router.put('/:id', requireAdminOrDispatcher, ordersController.updateOrder);
 
 /**
  * @route   DELETE /api/v1/orders/:id
  * @desc    Delete order
  * @access  Private (Admin, Dispatcher only)
  */
-router.delete('/:id', requireDispatcher, ordersController.deleteOrder);
+router.delete('/:id', requireAdminOrDispatcher, ordersController.deleteOrder);
 
 /**
  * @route   POST /api/v1/orders/:id/proof-of-delivery
  * @desc    Submit proof of delivery (signature, photos, notes)
  * @access  Private (Driver can submit for their runs, Admin/Dispatcher can submit for any)
  */
-router.post('/:id/proof-of-delivery', requireDriver, ordersController.submitProofOfDelivery);
+router.post('/:id/proof-of-delivery', ordersController.submitProofOfDelivery);
 
 /**
  * @route   POST /api/v1/orders/:id/delivered
  * @desc    Mark order as delivered (without proof)
  * @access  Private (Driver can mark for their runs, Admin/Dispatcher can mark any)
  */
-router.post('/:id/delivered', requireDriver, ordersController.markAsDelivered);
+router.post('/:id/delivered', ordersController.markAsDelivered);
 
 /**
  * @route   POST /api/v1/orders/:id/failed
  * @desc    Mark order as failed with reason
  * @access  Private (Driver can mark for their runs, Admin/Dispatcher can mark any)
  */
-router.post('/:id/failed', requireDriver, ordersController.markAsFailed);
+router.post('/:id/failed', ordersController.markAsFailed);
 
 export default router;
