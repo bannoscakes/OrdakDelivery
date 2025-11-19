@@ -138,7 +138,7 @@ export class ShopifyService {
           scheduledDate,
           timeWindowStart,
           timeWindowEnd,
-          items: shopifyOrder.line_items as Prisma.InputJsonValue,
+          items: shopifyOrder.line_items as unknown as Prisma.InputJsonValue,
           notes: shopifyOrder.note,
         },
         include: {
@@ -179,7 +179,7 @@ export class ShopifyService {
       const updated = await prisma.order.update({
         where: { id: order.id },
         data: {
-          items: shopifyOrder.line_items as Prisma.InputJsonValue,
+          items: shopifyOrder.line_items as unknown as Prisma.InputJsonValue,
           notes: shopifyOrder.note,
         },
       });
