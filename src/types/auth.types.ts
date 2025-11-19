@@ -17,7 +17,8 @@ export interface RegisterRequest {
   firstName: string;
   lastName: string;
   phone?: string;
-  role: UserRole;
+  // Security: role field removed from registration
+  // All new registrations default to DRIVER role
 }
 
 export interface RegisterResponse {
