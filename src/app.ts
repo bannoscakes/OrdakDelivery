@@ -12,6 +12,7 @@ import { preserveRawBody } from '@/middleware/rawBody';
 
 // Routes
 import authRouter from '@/modules/auth/auth.routes';
+import usersRouter from '@/modules/users/users.routes';
 import ordersRouter from '@/modules/orders/orders.routes';
 import shopifyRouter from '@/modules/orders/shopify.routes';
 import geocodingRouter from '@/modules/geocoding/geocoding.routes';
@@ -75,6 +76,7 @@ const createApp = (): Application => {
 
   // Routes
   app.use(`${apiPrefix}/auth`, authRouter);
+  app.use(`${apiPrefix}/users`, usersRouter);
   app.use(`${apiPrefix}/orders`, ordersRouter);
   app.use(`${apiPrefix}/geocoding`, geocodingRouter);
   app.use(`${apiPrefix}/drivers`, driversRouter);

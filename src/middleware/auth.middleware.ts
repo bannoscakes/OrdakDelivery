@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt.util';
 import { prisma } from '../lib/prisma';
 import { AuthUser } from '../types/auth.types';
+import logger from '../config/logger';
 
 export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -54,9 +55,11 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     next();
   } catch (error) {
+    // Security: Log error details server-side only, don't expose to client
+    logger.error('Authentication error:', error);
     res.status(401).json({
       error: 'Authentication failed',
-      message: error instanceof Error ? error.message : 'Invalid token',
+      message: 'Invalid or expired token',
     });
   }
 };

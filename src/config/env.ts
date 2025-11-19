@@ -47,9 +47,9 @@ const envSchema = z.object({
   SENDGRID_FROM_EMAIL: z.string().email().optional(),
   SENDGRID_FROM_NAME: z.string().optional(),
 
-  // Security
-  JWT_SECRET: z.string().min(32),
-  JWT_EXPIRES_IN: z.string().default('7d'),
+  // Security - JWT Authentication
+  JWT_ACCESS_SECRET: z.string().min(32),
+  JWT_REFRESH_SECRET: z.string().min(32),
   CORS_ORIGIN: z
     .string()
     .default('http://localhost:3001')

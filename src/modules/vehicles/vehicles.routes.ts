@@ -10,7 +10,7 @@ router.use(authenticate);
 /**
  * @route   POST /api/v1/vehicles
  * @desc    Create a new vehicle
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
 router.post('/', requireAdminOrDispatcher, vehiclesController.createVehicle);
 
@@ -38,14 +38,14 @@ router.get('/:id', vehiclesController.getVehicle);
 /**
  * @route   PUT /api/v1/vehicles/:id
  * @desc    Update vehicle
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
 router.put('/:id', requireAdminOrDispatcher, vehiclesController.updateVehicle);
 
 /**
  * @route   DELETE /api/v1/vehicles/:id
  * @desc    Delete vehicle
- * @access  Private (Admin, Dispatcher only)
+ * @access  Admin, Dispatcher
  */
 router.delete('/:id', requireAdminOrDispatcher, vehiclesController.deleteVehicle);
 
