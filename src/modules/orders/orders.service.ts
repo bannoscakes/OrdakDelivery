@@ -219,6 +219,154 @@ export class OrdersService {
       },
     });
   }
+
+  /**
+   * Submit proof of delivery for an order
+   */
+  async submitProofOfDelivery(
+    id: string,
+    data: {
+      signatureUrl?: string;
+      photoUrls?: string[];
+      deliveryNotes?: string;
+      recipientName?: string;
+    },
+    userContext: { id: string; role: string }
+  ): Promise<Order> {
+    // Single fetch with run and driver for authorization
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        assignedRun: {
+          include: {
+            driver: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new AppError(404, 'Order not found');
+    }
+
+    // Authorization check for DRIVER role
+    if (userContext.role === 'DRIVER') {
+      if (!order.assignedRun || !order.assignedRun.driver || order.assignedRun.driver.userId !== userContext.id) {
+        throw new AppError(403, 'Drivers can only submit POD for orders in their assigned runs');
+      }
+    }
+
+    // Update order with POD data
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: {
+        status: OrderStatus.DELIVERED,
+        deliveredAt: new Date(),
+        signatureUrl: data.signatureUrl,
+        photoUrls: data.photoUrls as unknown as Prisma.InputJsonValue,
+        deliveryNotes: data.deliveryNotes,
+      },
+      include: {
+        customer: true,
+      },
+    });
+
+    logger.info('Proof of delivery submitted', {
+      orderId: id,
+      hasSignature: !!data.signatureUrl,
+      photoCount: data.photoUrls?.length || 0,
+    });
+
+    return updatedOrder;
+  }
+
+  /**
+   * Mark order as delivered (without proof)
+   */
+  async markAsDelivered(id: string, userContext: { id: string; role: string }): Promise<Order> {
+    // Single fetch with run and driver for authorization
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        assignedRun: {
+          include: {
+            driver: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new AppError(404, 'Order not found');
+    }
+
+    // Authorization check for DRIVER role
+    if (userContext.role === 'DRIVER') {
+      if (!order.assignedRun || !order.assignedRun.driver || order.assignedRun.driver.userId !== userContext.id) {
+        throw new AppError(403, 'Drivers can only mark orders as delivered in their assigned runs');
+      }
+    }
+
+    // Update order
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: {
+        status: OrderStatus.DELIVERED,
+        deliveredAt: new Date(),
+      },
+      include: {
+        customer: true,
+      },
+    });
+
+    logger.info('Order marked as delivered', { orderId: id });
+
+    return updatedOrder;
+  }
+
+  /**
+   * Mark order as failed with reason
+   */
+  async markAsFailed(id: string, failureReason: string | undefined, userContext: { id: string; role: string }): Promise<Order> {
+    // Single fetch with run and driver for authorization
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        assignedRun: {
+          include: {
+            driver: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new AppError(404, 'Order not found');
+    }
+
+    // Authorization check for DRIVER role
+    if (userContext.role === 'DRIVER') {
+      if (!order.assignedRun || !order.assignedRun.driver || order.assignedRun.driver.userId !== userContext.id) {
+        throw new AppError(403, 'Drivers can only mark orders as failed in their assigned runs');
+      }
+    }
+
+    // Update order
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: {
+        status: OrderStatus.FAILED,
+        deliveryNotes: failureReason,
+      },
+      include: {
+        customer: true,
+      },
+    });
+
+    logger.info('Order marked as failed', { orderId: id, reason: failureReason });
+
+    return updatedOrder;
+  }
 }
 
 export default new OrdersService();

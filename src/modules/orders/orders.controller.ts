@@ -153,3 +153,59 @@ export const getUnassignedOrders = asyncHandler(async (req: Request, res: Respon
     data: orders,
   });
 });
+
+const submitProofOfDeliverySchema = z.object({
+  body: z.object({
+    signatureUrl: z.string().url().optional(),
+    photoUrls: z.array(z.string().url()).optional(),
+    deliveryNotes: z.string().optional(),
+    recipientName: z.string().optional(),
+  }),
+});
+
+export const submitProofOfDelivery = asyncHandler(async (req: Request, res: Response) => {
+  const id = req.params['id']!;
+  const { body } = submitProofOfDeliverySchema.parse({ body: req.body });
+
+  // Authorization is handled in service layer to prevent TOCTOU vulnerability
+  const order = await ordersService.submitProofOfDelivery(id, body, {
+    id: req.user!.id,
+    role: req.user!.role,
+  });
+
+  res.status(200).json({
+    success: true,
+    data: order,
+  });
+});
+
+export const markAsDelivered = asyncHandler(async (req: Request, res: Response) => {
+  const id = req.params['id']!;
+
+  // Authorization is handled in service layer to prevent TOCTOU vulnerability
+  const order = await ordersService.markAsDelivered(id, {
+    id: req.user!.id,
+    role: req.user!.role,
+  });
+
+  res.status(200).json({
+    success: true,
+    data: order,
+  });
+});
+
+export const markAsFailed = asyncHandler(async (req: Request, res: Response) => {
+  const id = req.params['id']!;
+  const { failureReason } = req.body;
+
+  // Authorization is handled in service layer to prevent TOCTOU vulnerability
+  const order = await ordersService.markAsFailed(id, failureReason, {
+    id: req.user!.id,
+    role: req.user!.role,
+  });
+
+  res.status(200).json({
+    success: true,
+    data: order,
+  });
+});
