@@ -219,6 +219,81 @@ export class OrdersService {
       },
     });
   }
+
+  /**
+   * Submit proof of delivery for an order
+   */
+  async submitProofOfDelivery(
+    id: string,
+    data: {
+      signatureUrl?: string;
+      photoUrls?: string[];
+      deliveryNotes?: string;
+      recipientName?: string;
+    }
+  ): Promise<Order> {
+    const order = await prisma.order.update({
+      where: { id },
+      data: {
+        status: OrderStatus.DELIVERED,
+        deliveredAt: new Date(),
+        signatureUrl: data.signatureUrl,
+        photoUrls: data.photoUrls as unknown as Prisma.InputJsonValue,
+        deliveryNotes: data.deliveryNotes,
+      },
+      include: {
+        customer: true,
+      },
+    });
+
+    logger.info('Proof of delivery submitted', {
+      orderId: id,
+      hasSignature: !!data.signatureUrl,
+      photoCount: data.photoUrls?.length || 0,
+    });
+
+    return order;
+  }
+
+  /**
+   * Mark order as delivered (without proof)
+   */
+  async markAsDelivered(id: string): Promise<Order> {
+    const order = await prisma.order.update({
+      where: { id },
+      data: {
+        status: OrderStatus.DELIVERED,
+        deliveredAt: new Date(),
+      },
+      include: {
+        customer: true,
+      },
+    });
+
+    logger.info('Order marked as delivered', { orderId: id });
+
+    return order;
+  }
+
+  /**
+   * Mark order as failed with reason
+   */
+  async markAsFailed(id: string, failureReason?: string): Promise<Order> {
+    const order = await prisma.order.update({
+      where: { id },
+      data: {
+        status: OrderStatus.FAILED,
+        deliveryNotes: failureReason,
+      },
+      include: {
+        customer: true,
+      },
+    });
+
+    logger.info('Order marked as failed', { orderId: id, reason: failureReason });
+
+    return order;
+  }
 }
 
 export default new OrdersService();

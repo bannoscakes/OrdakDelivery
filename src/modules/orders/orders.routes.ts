@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import * as ordersController from './orders.controller';
 import { authenticate } from '@/middleware/auth.middleware';
-import { requireDispatcher } from '@/middleware/role.middleware';
+import { requireDispatcher, requireDriver } from '@/middleware/role.middleware';
 
 const router = Router();
 
@@ -49,5 +49,26 @@ router.put('/:id', requireDispatcher, ordersController.updateOrder);
  * @access  Private (Admin, Dispatcher only)
  */
 router.delete('/:id', requireDispatcher, ordersController.deleteOrder);
+
+/**
+ * @route   POST /api/v1/orders/:id/proof-of-delivery
+ * @desc    Submit proof of delivery (signature, photos, notes)
+ * @access  Private (Driver can submit for their runs, Admin/Dispatcher can submit for any)
+ */
+router.post('/:id/proof-of-delivery', requireDriver, ordersController.submitProofOfDelivery);
+
+/**
+ * @route   POST /api/v1/orders/:id/delivered
+ * @desc    Mark order as delivered (without proof)
+ * @access  Private (Driver can mark for their runs, Admin/Dispatcher can mark any)
+ */
+router.post('/:id/delivered', requireDriver, ordersController.markAsDelivered);
+
+/**
+ * @route   POST /api/v1/orders/:id/failed
+ * @desc    Mark order as failed with reason
+ * @access  Private (Driver can mark for their runs, Admin/Dispatcher can mark any)
+ */
+router.post('/:id/failed', requireDriver, ordersController.markAsFailed);
 
 export default router;
