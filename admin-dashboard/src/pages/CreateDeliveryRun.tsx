@@ -92,8 +92,10 @@ export function CreateDeliveryRun() {
             <input
               id="scheduledDate"
               type="date"
-              {...register('scheduledDate', { required: 'Scheduled date is required' })}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              {...register('scheduledDate', {
+                required: 'Scheduled date is required',
+                onChange: (e) => setSelectedDate(e.target.value),
+              })}
             />
             {errors.scheduledDate && (
               <span className="error-message">{errors.scheduledDate.message}</span>
@@ -150,15 +152,15 @@ export function CreateDeliveryRun() {
                   <input
                     type="checkbox"
                     checked={selectedOrderIds.includes(order.id)}
-                    onChange={() => {}}
+                    readOnly
                   />
                   <div className="order-info">
                     <div className="order-number">{order.orderNumber}</div>
                     <div className="order-customer">
-                      {order.customer.firstName} {order.customer.lastName}
+                      {order.customer?.firstName ?? ''} {order.customer?.lastName ?? ''}
                     </div>
                     <div className="order-address">
-                      {order.address.line1}, {order.address.city}
+                      {order.address?.line1 ?? ''}, {order.address?.city ?? ''}
                     </div>
                   </div>
                 </div>
