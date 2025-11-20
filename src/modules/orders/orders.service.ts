@@ -1,10 +1,16 @@
 import prisma from '@config/database';
 import logger from '@config/logger';
 import { AppError, createAppError } from '@/middleware/errorHandler';
-import { Order, OrderType, OrderStatus, Prisma, Address } from '@prisma/client';
+import { Order, OrderType, OrderStatus, Prisma, Customer, Address } from '@prisma/client';
 import type { CreateOrderInput, UpdateOrderInput, ProofOfDeliveryInput } from './orders.types';
 import { normalizePagination } from '@/utils/pagination';
 import { geocodeAddressToWKT } from '@/utils/geocoding';
+
+// Type for createOrder return with included relations
+type OrderWithRelations = Order & {
+  customer: Customer;
+  deliveryAddress: Address;
+};
 
 export class OrdersService {
   /**
@@ -13,75 +19,139 @@ export class OrdersService {
    * Uses transaction for atomicity
    *
    * @param input - Order creation data including customer, address, and items
-   * @returns Promise resolving to the created order with relations
+   * @returns Promise resolving to the created order with customer and deliveryAddress relations
    * @throws {AppError} If order creation fails
    */
-  async createOrder(input: CreateOrderInput): Promise<Order> {
+  async createOrder(input: CreateOrderInput): Promise<OrderWithRelations> {
+    // FIXED: Move geocoding OUTSIDE transaction to avoid external I/O inside transaction
+    let locationWKT: string | null = null;
+    let geocodingSucceeded = false;
+
     try {
-      // Use transaction to ensure atomicity (Address + Order created together)
+      const fullAddress = `${input.address.line1}, ${input.address.city}, ${input.address.stateProvince || ''} ${input.address.postalCode}, ${input.address.country || 'US'}`;
+      const geocodeResult = await geocodeAddressToWKT(
+        fullAddress,
+        input.address.country || 'US'
+      );
+      locationWKT = geocodeResult.locationWKT;
+      geocodingSucceeded = geocodeResult.geocoded;
+    } catch (geocodeError) {
+      // Log geocoding failure but continue with order creation
+      logger.warn('Geocoding failed, creating order without location', {
+        orderNumber: input.orderNumber,
+        error: geocodeError instanceof Error ? geocodeError.message : String(geocodeError),
+      });
+    }
+
+    try {
+      // Use transaction to ensure atomicity (Customer + Address + Order created together)
       const order = await prisma.$transaction(async (tx) => {
         // 1. Find or create customer
-        const customer = await tx.customer.upsert({
-          where: {
-            // Customer doesn't have unique email in schema, use email+phone combo or create always
-            email: input.customer.email || undefined,
-          },
-          update: {
-            firstName: input.customer.firstName,
-            lastName: input.customer.lastName,
-            phone: input.customer.phone,
-            company: input.customer.company,
-          },
-          create: {
-            email: input.customer.email,
-            phone: input.customer.phone,
-            firstName: input.customer.firstName,
-            lastName: input.customer.lastName,
-            company: input.customer.company,
-          },
-        });
+        // FIXED: Avoid passing undefined to Prisma where clause
+        let customer: Customer;
 
-        // 2. Geocode address
-        const fullAddress = `${input.address.line1}, ${input.address.city}, ${input.address.stateProvince || ''} ${input.address.postalCode}, ${input.address.country || 'US'}`;
-        const { locationWKT, geocoded } = await geocodeAddressToWKT(
-          fullAddress,
-          input.address.country || 'US'
-        );
+        if (input.customer.email) {
+          // If email provided, try to find existing customer
+          const existingCustomer = await tx.customer.findUnique({
+            where: { email: input.customer.email },
+          });
 
-        // 3. Create Address record
-        const address: Address = await tx.address.create({
-          data: {
-            customerId: customer.id,
-            line1: input.address.line1,
-            line2: input.address.line2,
-            city: input.address.city,
-            stateProvince: input.address.stateProvince, // FIXED: was province
-            postalCode: input.address.postalCode,
-            country: input.address.country || 'US',
-            // Store geocoded location if available
-            ...(geocoded && locationWKT
-              ? {
-                  location: Prisma.sql`ST_GeomFromText(${locationWKT}, 4326)`,
-                  geocodedAt: new Date(),
-                }
-              : {}),
-            deliveryInstructions: input.address.deliveryInstructions,
-          },
-        });
+          if (existingCustomer) {
+            // Update existing customer
+            customer = await tx.customer.update({
+              where: { id: existingCustomer.id },
+              data: {
+                firstName: input.customer.firstName,
+                lastName: input.customer.lastName,
+                phone: input.customer.phone,
+                company: input.customer.company,
+              },
+            });
+          } else {
+            // Create new customer with email
+            customer = await tx.customer.create({
+              data: {
+                email: input.customer.email,
+                phone: input.customer.phone,
+                firstName: input.customer.firstName,
+                lastName: input.customer.lastName,
+                company: input.customer.company,
+              },
+            });
+          }
+        } else {
+          // No email - always create new customer
+          customer = await tx.customer.create({
+            data: {
+              email: input.customer.email,
+              phone: input.customer.phone,
+              firstName: input.customer.firstName,
+              lastName: input.customer.lastName,
+              company: input.customer.company,
+            },
+          });
+        }
 
-        // 4. Create Order with deliveryAddressId
+        // 2. Create Address record with geometry if geocoding succeeded
+        let address: Address;
+
+        if (geocodingSucceeded && locationWKT) {
+          // FIXED: Use raw query to insert geometry field correctly
+          // First create address without geometry
+          const tempAddress = await tx.address.create({
+            data: {
+              customerId: customer.id,
+              line1: input.address.line1,
+              line2: input.address.line2,
+              city: input.address.city,
+              stateProvince: input.address.stateProvince,
+              postalCode: input.address.postalCode,
+              country: input.address.country || 'US',
+              geocodedAt: new Date(),
+              deliveryInstructions: input.address.deliveryInstructions,
+            },
+          });
+
+          // Update with geometry using raw query
+          await tx.$executeRaw`
+            UPDATE addresses
+            SET location = ST_GeomFromText(${locationWKT}, 4326)
+            WHERE id = ${tempAddress.id}::uuid
+          `;
+
+          // Fetch the complete address with geometry
+          address = (await tx.address.findUnique({
+            where: { id: tempAddress.id },
+          }))!;
+        } else {
+          // Create address without geometry
+          address = await tx.address.create({
+            data: {
+              customerId: customer.id,
+              line1: input.address.line1,
+              line2: input.address.line2,
+              city: input.address.city,
+              stateProvince: input.address.stateProvince,
+              postalCode: input.address.postalCode,
+              country: input.address.country || 'US',
+              deliveryInstructions: input.address.deliveryInstructions,
+            },
+          });
+        }
+
+        // 3. Create Order with deliveryAddressId
         const createdOrder = await tx.order.create({
           data: {
             orderNumber: input.orderNumber,
             externalId: input.externalId,
-            externalSource: input.externalSource || 'manual', // FIXED: Added default
+            externalSource: input.externalSource || 'manual',
             type: input.type,
-            status: OrderStatus.pending, // FIXED: lowercase enum
+            status: OrderStatus.pending,
             customerId: customer.id,
-            deliveryAddressId: address.id, // FIXED: Use relation instead of inline fields
+            deliveryAddressId: address.id,
             scheduledDate: input.scheduledDate,
-            deliveryWindowStart: input.deliveryWindowStart, // FIXED: renamed from timeWindowStart
-            deliveryWindowEnd: input.deliveryWindowEnd, // FIXED: renamed from timeWindowEnd
+            deliveryWindowStart: input.deliveryWindowStart,
+            deliveryWindowEnd: input.deliveryWindowEnd,
             priority: input.priority ?? 0,
             weightKg: input.weightKg,
             dimensionsCm: input.dimensionsCm,
@@ -106,7 +176,7 @@ export class OrdersService {
           },
           include: {
             customer: true,
-            deliveryAddress: true, // FIXED: Include address relation
+            deliveryAddress: true,
           },
         });
 
@@ -117,11 +187,20 @@ export class OrdersService {
         orderId: order.id,
         orderNumber: order.orderNumber,
         deliveryAddressId: order.deliveryAddressId,
+        geocoded: geocodingSucceeded,
       });
 
       return order;
     } catch (error) {
-      logger.error('Failed to create order', { input, error });
+      // FIXED: Remove PII from error logs - only log non-sensitive identifiers
+      logger.error('Failed to create order', {
+        orderNumber: input.orderNumber,
+        externalId: input.externalId,
+        externalSource: input.externalSource,
+        type: input.type,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      });
       throw createAppError(500, 'Failed to create order', error);
     }
   }
