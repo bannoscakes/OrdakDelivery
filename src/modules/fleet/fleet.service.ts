@@ -324,7 +324,8 @@ export class FleetService {
    *
    * @param driverId - Driver ID
    * @param scheduledDate - Date to check
-   * @returns True if available, false otherwise
+   * @returns True if available, false if unavailable
+   * @throws {AppError} If database query fails
    */
   async isDriverAvailable(driverId: string, scheduledDate: Date): Promise<boolean> {
     try {
@@ -346,7 +347,7 @@ export class FleetService {
       return !existingRun;
     } catch (error) {
       logger.error('Failed to check driver availability', { driverId, scheduledDate, error });
-      return false;
+      throw createAppError(500, 'Failed to check driver availability', error);
     }
   }
 
@@ -355,7 +356,8 @@ export class FleetService {
    *
    * @param vehicleId - Vehicle ID
    * @param scheduledDate - Date to check
-   * @returns True if available, false otherwise
+   * @returns True if available, false if unavailable
+   * @throws {AppError} If database query fails
    */
   async isVehicleAvailable(vehicleId: string, scheduledDate: Date): Promise<boolean> {
     try {
@@ -377,7 +379,7 @@ export class FleetService {
       return !existingRun;
     } catch (error) {
       logger.error('Failed to check vehicle availability', { vehicleId, scheduledDate, error });
-      return false;
+      throw createAppError(500, 'Failed to check vehicle availability', error);
     }
   }
 
