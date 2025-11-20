@@ -27,11 +27,11 @@ export class SmsService {
 
   constructor() {
     // Initialize Twilio client if enabled
-    if (config.twilio.enabled) {
+    if (config.TWILIO_ENABLED) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const twilio = require('twilio');
-        this.twilioClient = twilio(config.twilio.accountSid, config.twilio.authToken);
+        this.twilioClient = twilio(config.TWILIO_ACCOUNT_SID, config.TWILIO_AUTH_TOKEN);
         logger.info('Twilio SMS client initialized');
       } catch (error) {
         logger.warn('Twilio not available, SMS will be logged only', { error });
@@ -71,11 +71,11 @@ export class SmsService {
       });
 
       // Send SMS via Twilio if enabled
-      if (this.twilioClient && config.twilio.phoneNumber) {
+      if (this.twilioClient && config.TWILIO_PHONE_NUMBER) {
         try {
           const result = await this.twilioClient.messages.create({
             body: input.message,
-            from: config.twilio.phoneNumber,
+            from: config.TWILIO_PHONE_NUMBER,
             to: input.phoneNumber,
           });
 
