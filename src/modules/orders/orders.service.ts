@@ -266,9 +266,12 @@ export class OrdersService {
         status: OrderStatus.pending, // FIXED: lowercase enum
         assignedRunId: null,
         // Only orders with geocoded addresses can be routed
+        // FIXED: Use 'is' for to-one relation filter
         deliveryAddress: {
-          geocodedAt: {
-            not: null,
+          is: {
+            geocodedAt: {
+              not: null,
+            },
           },
         },
         scheduledDate: {

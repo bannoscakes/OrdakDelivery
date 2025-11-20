@@ -320,13 +320,18 @@ where: {
 ### ✅ AFTER:
 ```typescript
 where: {
+  // FIXED: Use 'is' wrapper for to-one relation filters (Prisma requirement)
   deliveryAddress: {
-    geocodedAt: {
-      not: null,  // ✅ Check if address is geocoded
+    is: {
+      geocodedAt: {
+        not: null,  // ✅ Check if address is geocoded
+      },
     },
   },
 }
 ```
+
+**Important:** Prisma requires to-one relation filters to be wrapped in `is` or `isNot`. Without this wrapper, Prisma will reject the query at type-check time or throw a validation error at runtime.
 
 ---
 
