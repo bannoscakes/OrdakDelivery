@@ -251,15 +251,30 @@ model Order {
   sequenceInRun    Int?      @map("sequence_in_run")
   estimatedArrival DateTime? @map("estimated_arrival") @db.Timestamptz(6)
 
+  // ZONE ASSIGNMENT (nullable for backward compatibility)
+  zoneId String? @map("zone_id") @db.Uuid
+
+  // TIME WINDOWS (calculated at finalize)
+  estimatedArrivalStart DateTime? @map("estimated_arrival_start") @db.Timestamptz(6)
+  estimatedArrivalEnd   DateTime? @map("estimated_arrival_end") @db.Timestamptz(6)
+
+  // CUSTOMER NOTIFICATIONS
+  customerNotified   Boolean   @default(false) @map("customer_notified")
+  customerNotifiedAt DateTime? @map("customer_notified_at") @db.Timestamptz(6)
+  trackingLinkSent   Boolean   @default(false) @map("tracking_link_sent")
+  trackingUrl        String?   @map("tracking_url") @db.VarChar(500)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Relations
-  customer        Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  deliveryAddress Address           @relation(fields: [deliveryAddressId], references: [id])
-  assignedRun     DeliveryRun?      @relation(fields: [assignedRunId], references: [id], onDelete: SetNull)
-  runOrders       RunOrder[]
-  proofOfDelivery ProofOfDelivery[]
+  customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  deliveryAddress  Address           @relation(fields: [deliveryAddressId], references: [id])
+  assignedRun      DeliveryRun?      @relation(fields: [assignedRunId], references: [id], onDelete: SetNull)
+  zone             DeliveryZone?     @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  runOrders        RunOrder[]
+  proofOfDelivery  ProofOfDelivery[]
+  smsNotifications SmsNotification[]
 
   @@index([orderNumber])
   @@index([externalId, externalSource])
@@ -267,6 +282,8 @@ model Order {
   @@index([status])
   @@index([scheduledDate])
   @@index([assignedRunId])
+  @@index([zoneId])
+  @@index([scheduledDate, zoneId])
   @@index([createdAt(sort: Desc)])
   @@map("orders")
 }
@@ -306,22 +323,49 @@ model DeliveryRun {
   failedOrders             Int                                    @default(0) @map("failed_orders")
   notes                    String?                                @db.Text
   dispatcherNotes          String?                                @map("dispatcher_notes") @db.Text
-  createdAt                DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                DateTime                               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // ZONE ASSIGNMENT (nullable for backward compatibility)
+  zoneId String? @map("zone_id") @db.Uuid
+
+  // DRAFT WORKFLOW FIELDS
+  isDraft     Boolean   @default(true) @map("is_draft")
+  canFinalize Boolean   @default(false) @map("can_finalize")
+  finalizedAt DateTime? @map("finalized_at") @db.Timestamptz(6)
+  finalizedBy String?   @map("finalized_by") @db.Uuid
+
+  // CUSTOMER NOTIFICATION TRACKING
+  customerSmssSent  Boolean   @default(false) @map("customer_smss_sent")
+  customerSmsSentAt DateTime? @map("customer_sms_sent_at") @db.Timestamptz(6)
+  customerSmsCount  Int       @default(0) @map("customer_sms_count")
+
+  // DRIVER NOTIFICATION TRACKING
+  driverNotified   Boolean   @default(false) @map("driver_notified")
+  driverNotifiedAt DateTime? @map("driver_notified_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Relations
   driver           Driver?            @relation(fields: [driverId], references: [id], onDelete: SetNull)
   vehicle          Vehicle?           @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   startAddress     Address?           @relation(fields: [startAddressId], references: [id])
+  zone             DeliveryZone?      @relation(fields: [zoneId], references: [id], onDelete: SetNull)
   orders           Order[] // Direct relation for simple queries
   runOrders        RunOrder[] // Many-to-many junction table (for advanced features)
   proofOfDelivery  ProofOfDelivery[]
   locationTracking LocationTracking[]
+  smsNotifications SmsNotification[]
 
+  @@unique([scheduledDate, driverId], map: "unique_driver_per_date")
+  @@unique([scheduledDate, vehicleId], map: "unique_vehicle_per_date")
   @@index([runNumber])
   @@index([driverId])
   @@index([status])
   @@index([scheduledDate])
+  @@index([zoneId])
+  @@index([scheduledDate, zoneId])
+  @@index([isDraft, scheduledDate])
+  @@index([canFinalize])
   @@map("delivery_runs")
 }
 
@@ -491,4 +535,82 @@ model AuditLog {
   @@index([entityType, entityId, createdAt(sort: Desc)])
   @@index([userId, createdAt(sort: Desc)])
   @@map("audit_logs")
+}
+
+// =====================================================
+// DELIVERY ZONES
+// =====================================================
+
+model DeliveryZone {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name              String   @db.VarChar(100)
+  description       String?  @db.Text
+  color             String?  @db.VarChar(7)
+  boundary          Json     @db.JsonB // GeoJSON polygon
+  activeDays        String[] // ["monday", "tuesday", ...]
+  isActive          Boolean  @default(true) @map("is_active")
+  targetDriverCount Int      @default(1) @map("target_driver_count")
+  displayOrder      Int      @default(0) @map("display_order")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  orders Order[]
+  runs   DeliveryRun[]
+
+  @@index([isActive])
+  @@index([displayOrder])
+  @@map("delivery_zones")
+}
+
+// =====================================================
+// SMS NOTIFICATIONS
+// =====================================================
+
+model SmsNotification {
+  id               String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  type             SmsNotificationType
+  status           SmsStatus           @default(pending)
+  phoneNumber      String              @map("phone_number") @db.VarChar(20)
+  recipientName    String?             @map("recipient_name") @db.VarChar(200)
+  message          String              @db.Text
+  orderId          String?             @map("order_id") @db.Uuid
+  runId            String?             @map("run_id") @db.Uuid
+  scheduledDate    DateTime?           @map("scheduled_date") @db.Date
+  providerId       String?             @map("provider_id") @db.VarChar(100)
+  providerResponse Json?               @map("provider_response") @db.JsonB
+  error            String?             @db.Text
+  sentAt           DateTime?           @map("sent_at") @db.Timestamptz(6)
+  deliveredAt      DateTime?           @map("delivered_at") @db.Timestamptz(6)
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  order Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  run   DeliveryRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([type, status])
+  @@index([orderId])
+  @@index([runId])
+  @@index([scheduledDate])
+  @@index([createdAt(sort: Desc)])
+  @@map("sms_notifications")
+}
+
+enum SmsNotificationType {
+  customer_delivery_notification
+  customer_on_the_way
+  customer_arrived
+  customer_delivered
+  driver_run_assigned
+  driver_route_updated
+}
+
+enum SmsStatus {
+  pending
+  sending
+  sent
+  delivered
+  failed
+  bounced
 }

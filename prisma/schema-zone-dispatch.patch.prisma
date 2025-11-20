@@ -1,0 +1,231 @@
+// =====================================================
+// ZONE-BASED DISPATCH SYSTEM - SCHEMA ADDITIONS
+// =====================================================
+// This file contains the schema additions needed for the zone-based dispatch system
+// Apply these changes to the main schema.prisma file
+
+// =====================================================
+// DELIVERY ZONES (NEW MODEL)
+// =====================================================
+
+model DeliveryZone {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @db.VarChar(100) // "Zone 1", "North Sydney", etc.
+  description String?  @db.Text
+  color       String?  @db.VarChar(7) // Hex color for map display (#2E5EAA)
+
+  // Geographic boundary (GeoJSON polygon)
+  boundary    Json     @db.JsonB // GeoJSON polygon defining the zone
+
+  // Day-of-week scheduling
+  activeDays  String[] // ["monday", "tuesday", "wednesday", "friday", "saturday"]
+  isActive    Boolean  @default(true) @map("is_active")
+
+  // Target drivers for this zone
+  targetDriverCount Int @default(1) @map("target_driver_count")
+
+  // Display order (for UI sorting)
+  displayOrder Int @default(0) @map("display_order")
+
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  orders      Order[]
+  runs        DeliveryRun[]
+
+  @@index([isActive])
+  @@index([displayOrder])
+  @@map("delivery_zones")
+}
+
+// =====================================================
+// ORDER MODEL ADDITIONS
+// =====================================================
+// Add these fields to the existing Order model:
+
+model Order {
+  // ... existing fields ...
+
+  // ZONE ASSIGNMENT
+  zoneId      String?  @map("zone_id") @db.Uuid
+  zone        DeliveryZone? @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+
+  // TIME WINDOWS (calculated at finalize)
+  estimatedArrivalStart DateTime? @map("estimated_arrival_start") @db.Timestamptz(6)
+  estimatedArrivalEnd   DateTime? @map("estimated_arrival_end") @db.Timestamptz(6)
+
+  // CUSTOMER NOTIFICATIONS
+  customerNotified      Boolean  @default(false) @map("customer_notified")
+  customerNotifiedAt    DateTime? @map("customer_notified_at") @db.Timestamptz(6)
+  trackingLinkSent      Boolean  @default(false) @map("tracking_link_sent")
+  trackingUrl           String?  @map("tracking_url") @db.VarChar(500)
+
+  // Add index for zone queries
+  @@index([zoneId])
+  @@index([scheduledDate, zoneId])
+}
+
+// =====================================================
+// DELIVERY RUN MODEL ADDITIONS
+// =====================================================
+// Add these fields to the existing DeliveryRun model:
+
+model DeliveryRun {
+  // ... existing fields ...
+
+  // DRIVER/VEHICLE NOW OPTIONAL (can be null in draft mode)
+  // driverId and vehicleId are already nullable in current schema ✓
+
+  // ZONE ASSIGNMENT (REQUIRED)
+  zoneId        String   @map("zone_id") @db.Uuid
+  zone          DeliveryZone @relation(fields: [zoneId], references: [id])
+
+  // DRAFT WORKFLOW FIELDS
+  isDraft             Boolean  @default(true) @map("is_draft")
+  canFinalize         Boolean  @default(false) @map("can_finalize")
+  finalizedAt         DateTime? @map("finalized_at") @db.Timestamptz(6)
+  finalizedBy         String?  @map("finalized_by") @db.Uuid
+
+  // CUSTOMER NOTIFICATION TRACKING
+  customerSmssSent    Boolean  @default(false) @map("customer_smss_sent")
+  customerSmsSentAt   DateTime? @map("customer_sms_sent_at") @db.Timestamptz(6)
+  customerSmsCount    Int      @default(0) @map("customer_sms_count")
+
+  // DRIVER NOTIFICATION TRACKING
+  driverNotified      Boolean  @default(false) @map("driver_notified")
+  driverNotifiedAt    DateTime? @map("driver_notified_at") @db.Timestamptz(6)
+
+  // Add indexes for zone and draft queries
+  @@index([zoneId])
+  @@index([scheduledDate, zoneId])
+  @@index([isDraft, scheduledDate])
+  @@index([canFinalize])
+}
+
+// =====================================================
+// DISPATCH JOBS (NEW MODEL) - for async processing
+// =====================================================
+
+model DispatchJob {
+  id                String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  type              DispatchJobType
+  status            DispatchJobStatus @default(pending)
+  scheduledDate     DateTime      @map("scheduled_date") @db.Date
+
+  // Input parameters
+  parameters        Json?         @db.JsonB
+
+  // Results
+  result            Json?         @db.JsonB
+  error             String?       @db.Text
+
+  // Progress tracking
+  totalSteps        Int           @default(0) @map("total_steps")
+  completedSteps    Int           @default(0) @map("completed_steps")
+  progressPercent   Int           @default(0) @map("progress_percent")
+
+  // Timing
+  startedAt         DateTime?     @map("started_at") @db.Timestamptz(6)
+  completedAt       DateTime?     @map("completed_at") @db.Timestamptz(6)
+  durationSeconds   Int?          @map("duration_seconds")
+
+  // User tracking
+  createdBy         String?       @map("created_by") @db.Uuid
+
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([type, status])
+  @@index([scheduledDate])
+  @@index([createdAt(sort: Desc)])
+  @@map("dispatch_jobs")
+}
+
+enum DispatchJobType {
+  auto_assign_zones
+  create_draft_runs
+  rebalance_zones
+  finalize_all_runs
+  send_bulk_sms
+}
+
+enum DispatchJobStatus {
+  pending
+  running
+  completed
+  failed
+  cancelled
+}
+
+// =====================================================
+// SMS NOTIFICATIONS (NEW MODEL) - for tracking
+// =====================================================
+
+model SmsNotification {
+  id                String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  type              SmsNotificationType
+  status            SmsStatus           @default(pending)
+
+  // Recipient
+  phoneNumber       String              @map("phone_number") @db.VarChar(20)
+  recipientName     String?             @map("recipient_name") @db.VarChar(200)
+
+  // Message
+  message           String              @db.Text
+
+  // Context
+  orderId           String?             @map("order_id") @db.Uuid
+  runId             String?             @map("run_id") @db.Uuid
+  scheduledDate     DateTime?           @map("scheduled_date") @db.Date
+
+  // Provider response
+  providerId        String?             @map("provider_id") @db.VarChar(100)
+  providerResponse  Json?               @map("provider_response") @db.JsonB
+  error             String?             @db.Text
+
+  // Timing
+  sentAt            DateTime?           @map("sent_at") @db.Timestamptz(6)
+  deliveredAt       DateTime?           @map("delivered_at") @db.Timestamptz(6)
+
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([type, status])
+  @@index([orderId])
+  @@index([runId])
+  @@index([scheduledDate])
+  @@index([createdAt(sort: Desc)])
+  @@map("sms_notifications")
+}
+
+enum SmsNotificationType {
+  customer_delivery_notification
+  customer_on_the_way
+  customer_arrived
+  customer_delivered
+  driver_run_assigned
+  driver_route_updated
+}
+
+enum SmsStatus {
+  pending
+  sending
+  sent
+  delivered
+  failed
+  bounced
+}
+
+// =====================================================
+// MIGRATION NOTES
+// =====================================================
+//
+// To apply these changes:
+// 1. Copy the new models (DeliveryZone, DispatchJob, SmsNotification) to schema.prisma
+// 2. Add the new fields to Order model
+// 3. Add the new fields to DeliveryRun model
+// 4. Run: npx prisma format
+// 5. Run: npx prisma migrate dev --name add_zone_dispatch_system
+// 6. Run: npx prisma generate
+//
