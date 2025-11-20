@@ -202,7 +202,3 @@ After merging this PR, the following services can be fixed to properly use the e
 3. Vehicles service - use `type` field in create/update operations
 
 See `SCHEMA_AUDIT_REPORT.md` for detailed list of remaining schema mismatches.
-
----
-
-**End of Migration Guide**

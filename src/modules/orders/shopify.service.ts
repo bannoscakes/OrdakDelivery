@@ -73,7 +73,7 @@ export class ShopifyService {
 
       // Determine order type
       const orderType: OrderType =
-        deliveryType?.toLowerCase() === 'pickup' ? OrderType.PICKUP : OrderType.DELIVERY;
+        deliveryType?.toLowerCase() === 'pickup' ? OrderType.pickup : OrderType.delivery;
 
       // Use shipping address or customer default
       const address = shopifyOrder.shipping_address;
