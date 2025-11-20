@@ -227,8 +227,8 @@ export class RunsService {
     }
 
     const capacity = this.calculateRunCapacity(run.orders);
-    const vehicleCapacityKg = run.vehicle.capacityKg?.toNumber() || Infinity;
-    const vehicleCapacityCubicM = run.vehicle.capacityCubicM?.toNumber() || Infinity;
+    const vehicleCapacityKg = run.vehicle.capacityKg?.toNumber() ?? Infinity;
+    const vehicleCapacityCubicM = run.vehicle.capacityCubicM?.toNumber() ?? Infinity;
 
     // Check weight capacity
     if (capacity.totalWeightKg > vehicleCapacityKg) {
@@ -257,12 +257,19 @@ export class RunsService {
 
   /**
    * Calculate total capacity requirements for a set of orders
+   * Handles null/undefined weights and package counts safely
    * @private
    */
-  private calculateRunCapacity(orders: Array<{ weightKg: any; packageCount: number }>) {
+  private calculateRunCapacity(
+    orders: Array<{
+      weightKg: Prisma.Decimal | null | undefined;
+      packageCount: number | null | undefined;
+    }>
+  ) {
     const totalWeightKg = orders.reduce((sum, order) => {
-      const weight = order.weightKg ? Number(order.weightKg) : 0;
-      return sum + weight;
+      const weight = Number(order.weightKg);
+      const safeWeight = Number.isNaN(weight) ? 0 : weight;
+      return sum + safeWeight;
     }, 0);
 
     const totalPackages = orders.reduce((sum, order) => {
@@ -314,6 +321,16 @@ export class RunsService {
       },
     });
 
+    // Verify all requested order IDs were found
+    if (newOrders.length !== orderIds.length) {
+      const foundIds = new Set(newOrders.map((o) => o.id));
+      const missingIds = orderIds.filter((id) => !foundIds.has(id));
+      throw new AppError(
+        400,
+        `Order(s) not found: ${missingIds.join(', ')}. Cannot assign non-existent orders.`
+      );
+    }
+
     // Calculate combined capacity
     const existingCapacity = this.calculateRunCapacity(run.orders);
     const newCapacity = this.calculateRunCapacity(newOrders);
@@ -321,8 +338,8 @@ export class RunsService {
     const totalWeightKg = existingCapacity.totalWeightKg + newCapacity.totalWeightKg;
     const totalPackages = existingCapacity.totalPackages + newCapacity.totalPackages;
 
-    const vehicleCapacityKg = run.vehicle.capacityKg?.toNumber() || Infinity;
-    const vehicleCapacityCubicM = run.vehicle.capacityCubicM?.toNumber() || Infinity;
+    const vehicleCapacityKg = run.vehicle.capacityKg?.toNumber() ?? Infinity;
+    const vehicleCapacityCubicM = run.vehicle.capacityCubicM?.toNumber() ?? Infinity;
 
     // Check weight capacity
     if (totalWeightKg > vehicleCapacityKg) {
