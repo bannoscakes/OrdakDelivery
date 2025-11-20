@@ -30,7 +30,7 @@ class OrdersService {
    */
   async startOrder(orderId: string): Promise<Order> {
     return this.updateOrderStatus(orderId, {
-      status: 'IN_PROGRESS',
+      status: 'in_transit',
       actualArrival: new Date().toISOString(),
     });
   }
@@ -40,7 +40,7 @@ class OrdersService {
    */
   async deliverOrder(orderId: string, proofOfDelivery: ProofOfDelivery): Promise<Order> {
     return this.updateOrderStatus(orderId, {
-      status: 'DELIVERED',
+      status: 'delivered',
       proofOfDelivery,
     });
   }
@@ -50,7 +50,7 @@ class OrdersService {
    */
   async failOrder(orderId: string, reason: string): Promise<Order> {
     return this.updateOrderStatus(orderId, {
-      status: 'FAILED',
+      status: 'failed',
       notes: reason,
     });
   }

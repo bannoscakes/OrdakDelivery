@@ -130,9 +130,8 @@ export class ShopifyService {
           province: address.province,
           postalCode: address.zip,
           country: address.country_code,
-          ...(locationWKT && {
-            location: Prisma.sql`ST_GeomFromText(${locationWKT}, 4326)`,
-          }),
+          // Note: location field removed - Order model uses deliveryAddressId instead
+          // TODO: Fix this service to create Address record and link via deliveryAddressId
           geocoded,
           geocodedAt: geocoded ? new Date() : null,
           scheduledDate,

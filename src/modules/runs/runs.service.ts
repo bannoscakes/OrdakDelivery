@@ -1,7 +1,7 @@
 import prisma from '@config/database';
 import logger from '@config/logger';
 import { AppError } from '@/middleware/errorHandler';
-import { DeliveryRun, RunStatus, Prisma } from '@prisma/client';
+import { DeliveryRun, DeliveryRunStatus, Prisma } from '@prisma/client';
 import { optimizationService } from '@/services/mapbox';
 import type { OptimizationSolution } from '@/services/mapbox';
 import { normalizePagination } from '@/utils/pagination';
@@ -17,11 +17,13 @@ interface CreateRunInput {
 
 interface UpdateRunInput {
   name?: string;
-  status?: RunStatus;
+  status?: 'draft' | 'planned' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
   driverId?: string;
   vehicleId?: string;
-  startTime?: Date;
-  endTime?: Date;
+  startTime?: Date; // Scheduled start time (Time only)
+  actualStartTime?: Date; // Actual start timestamp
+  endTime?: Date; // Scheduled end time (Time only)
+  actualEndTime?: Date; // Actual end timestamp
 }
 
 export class RunsService {
@@ -33,13 +35,17 @@ export class RunsService {
    */
   async createRun(input: CreateRunInput): Promise<DeliveryRun> {
     try {
+      // Generate unique run number
+      const runNumber = await this.generateRunNumber(input.scheduledDate);
+
       const run = await prisma.deliveryRun.create({
         data: {
+          runNumber,
           name: input.name,
           scheduledDate: input.scheduledDate,
           driverId: input.driverId,
           vehicleId: input.vehicleId,
-          status: RunStatus.DRAFT,
+          status: 'draft',
         },
         include: {
           driver: true,
@@ -93,7 +99,7 @@ export class RunsService {
    * List runs with filters
    */
   async listRuns(params: {
-    status?: RunStatus;
+    status?: DeliveryRunStatus | DeliveryRunStatus[] | string | string[];
     driverId?: string;
     scheduledAfter?: Date;
     scheduledBefore?: Date;
@@ -103,7 +109,11 @@ export class RunsService {
     const { page, limit, skip } = normalizePagination(params);
 
     const where: Prisma.DeliveryRunWhereInput = {
-      ...(params.status && { status: params.status }),
+      ...(params.status && {
+        status: Array.isArray(params.status)
+          ? { in: params.status as DeliveryRunStatus[] }
+          : (params.status as DeliveryRunStatus),
+      }),
       ...(params.driverId && { driverId: params.driverId }),
       ...(params.scheduledAfter && {
         scheduledDate: { gte: params.scheduledAfter },
@@ -193,7 +203,7 @@ export class RunsService {
         },
         data: {
           assignedRunId: runId,
-          status: 'ASSIGNED',
+          status: 'assigned',
         },
       });
 
@@ -202,7 +212,7 @@ export class RunsService {
       await tx.deliveryRun.update({
         where: { id: runId },
         data: {
-          totalStops: orderCount,
+          totalOrders: orderCount,
         },
       });
     });
@@ -222,7 +232,7 @@ export class RunsService {
       data: {
         assignedRunId: null,
         sequenceInRun: null,
-        status: 'PENDING',
+        status: 'pending',
       },
     });
 
@@ -234,7 +244,7 @@ export class RunsService {
     await prisma.deliveryRun.update({
       where: { id: runId },
       data: {
-        totalStops: remainingOrders,
+        totalOrders: remainingOrders,
       },
     });
 
@@ -342,14 +352,14 @@ export class RunsService {
     // Wrap all updates in a transaction
     await prisma.$transaction(async (tx) => {
       // Update run with route data
+      // Note: Mapbox returns distance in meters, duration in seconds
       await tx.deliveryRun.update({
         where: { id: runId },
         data: {
-          routeGeometry: route.geometry as Prisma.InputJsonValue,
-          totalDistance: route.distance,
-          totalDuration: route.duration,
-          optimizedAt: new Date(),
-          status: RunStatus.PLANNED,
+          optimizedRoute: route.geometry as Prisma.InputJsonValue,
+          totalDistanceKm: route.distance / 1000, // Convert meters to kilometers
+          estimatedDurationMinutes: Math.round(route.duration / 60), // Convert seconds to minutes
+          status: 'planned',
         },
       });
 
@@ -398,16 +408,16 @@ export class RunsService {
       }
     }
 
-    // Update run status
+    // Update run status and record actual start time
     const updatedRun = await this.updateRun(runId, {
-      status: RunStatus.IN_PROGRESS,
-      startTime: new Date(),
+      status: 'in_progress',
+      actualStartTime: new Date(),
     });
 
-    // Update orders to IN_PROGRESS
+    // Update orders to in_transit
     await prisma.order.updateMany({
       where: { assignedRunId: runId },
-      data: { status: 'IN_PROGRESS' },
+      data: { status: 'in_transit' },
     });
 
     logger.info('Delivery run started', { runId });
@@ -442,15 +452,36 @@ export class RunsService {
       }
     }
 
-    // Update run status
+    // Update run status and record actual end time
     const updatedRun = await this.updateRun(runId, {
-      status: RunStatus.COMPLETED,
-      endTime: new Date(),
+      status: 'completed',
+      actualEndTime: new Date(),
     });
 
     logger.info('Delivery run completed', { runId });
 
     return updatedRun;
+  }
+
+  /**
+   * Generate a unique run number based on date
+   * Format: RUN-YYYYMMDD-XXX where XXX is a sequential number
+   */
+  private async generateRunNumber(scheduledDate: Date): Promise<string> {
+    const dateStr = scheduledDate.toISOString().slice(0, 10).replace(/-/g, '');
+    const prefix = `RUN-${dateStr}`;
+
+    // Count existing runs for this date to generate sequence number
+    const count = await prisma.deliveryRun.count({
+      where: {
+        runNumber: {
+          startsWith: prefix,
+        },
+      },
+    });
+
+    const sequence = (count + 1).toString().padStart(3, '0');
+    return `${prefix}-${sequence}`;
   }
 }
 

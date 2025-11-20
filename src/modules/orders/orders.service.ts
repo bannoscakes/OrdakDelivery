@@ -53,9 +53,8 @@ export class OrdersService {
           province: input.address.province,
           postalCode: input.address.postalCode,
           country: input.address.country || 'CA',
-          ...(locationWKT && {
-            location: Prisma.sql`ST_GeomFromText(${locationWKT}, 4326)`,
-          }),
+          // Note: location field removed - Order model uses deliveryAddressId instead
+          // TODO: Fix this service to create Address record and link via deliveryAddressId
           geocoded,
           geocodedAt: geocoded ? new Date() : null,
           scheduledDate: input.scheduledDate,
