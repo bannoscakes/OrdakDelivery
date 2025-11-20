@@ -1,4 +1,4 @@
-import { PrismaClient, OrderType, OrderStatus, DriverStatus, VehicleType } from '@prisma/client';
+import { PrismaClient, OrderType, OrderStatus, DriverStatus, VehicleType, VehicleStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -87,10 +87,9 @@ async function main() {
       model: 'Transit',
       year: 2022,
       type: VehicleType.van,
-      maxWeight: 1000,
-      maxVolume: 15,
-      maxStops: 30,
-      isActive: true,
+      capacityKg: 1000,
+      capacityCubicM: 15,
+      status: VehicleStatus.active,
     },
   });
 
@@ -103,10 +102,9 @@ async function main() {
       model: 'Sienna',
       year: 2021,
       type: VehicleType.van,
-      maxWeight: 800,
-      maxVolume: 12,
-      maxStops: 25,
-      isActive: true,
+      capacityKg: 800,
+      capacityCubicM: 12,
+      status: VehicleStatus.active,
     },
   });
 

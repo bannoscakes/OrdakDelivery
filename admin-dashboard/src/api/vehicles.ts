@@ -11,7 +11,7 @@ export const vehiclesApi = {
   // List vehicles with filters
   list: async (params?: {
     type?: VehicleType;
-    isActive?: boolean;
+    status?: 'active' | 'maintenance' | 'retired';
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<Vehicle>> => {
