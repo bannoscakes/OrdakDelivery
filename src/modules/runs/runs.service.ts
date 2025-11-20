@@ -463,11 +463,15 @@ export class RunsService {
         // Get service duration based on order type
         const serviceDuration = getServiceDuration(order.type);
 
+        // Convert weight safely, guarding against NaN
+        const weight = Number(order.weightKg);
+        const safeWeight = Number.isNaN(weight) ? 0 : weight;
+
         return {
           id: order.id,
           location: [result[0].lon, result[0].lat] as [number, number],
           serviceDuration,
-          weightKg: order.weightKg ? Number(order.weightKg) : 0,
+          weightKg: safeWeight,
           packageCount: order.packageCount ?? 0,
           ...(order.timeWindowStart &&
             order.timeWindowEnd && {
@@ -505,7 +509,11 @@ export class RunsService {
       // Get vehicle capacity for optimization constraints
       let vehicleCapacityKg: number | undefined;
       if (run.vehicle?.capacityKg) {
-        vehicleCapacityKg = Number(run.vehicle.capacityKg);
+        const capacity = Number(run.vehicle.capacityKg);
+        // Only assign if the conversion yields a finite number
+        if (Number.isFinite(capacity)) {
+          vehicleCapacityKg = capacity;
+        }
       }
 
       // Build and execute optimization request with capacity constraints
