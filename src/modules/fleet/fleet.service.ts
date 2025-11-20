@@ -145,8 +145,8 @@ export class FleetService {
       });
 
       const totalOrders = runs.reduce((sum, run) => sum + run.orders.length, 0);
-      const totalDuration = runs.reduce((sum, run) => sum + (run.totalDuration ?? 0), 0);
-      const totalDistance = runs.reduce((sum, run) => sum + (run.totalDistance ?? 0), 0);
+      const totalDuration = runs.reduce((sum, run) => sum + (run.estimatedDurationMinutes ?? 0), 0);
+      const totalDistance = runs.reduce((sum, run) => sum + (run.totalDistanceKm?.toNumber() ?? 0), 0);
 
       return {
         driverId: driver.id,
@@ -157,8 +157,8 @@ export class FleetService {
           runNumber: run.runNumber,
           status: run.status,
           orderCount: run.orders.length,
-          estimatedDuration: run.totalDuration ?? 0,
-          estimatedDistance: run.totalDistance ?? 0,
+          estimatedDuration: run.estimatedDurationMinutes ?? 0,
+          estimatedDistance: run.totalDistanceKm?.toNumber() ?? 0,
         })),
         totalOrders,
         totalDuration,
@@ -230,8 +230,8 @@ export class FleetService {
           runNumber: run.runNumber,
           status: run.status,
           orderCount: run.orders.length,
-          estimatedDuration: run.totalDuration ?? 0,
-          estimatedDistance: run.totalDistance ?? 0,
+          estimatedDuration: run.estimatedDurationMinutes ?? 0,
+          estimatedDistance: run.totalDistanceKm?.toNumber() ?? 0,
         })),
         totalOrders,
         utilizationPercent,
@@ -454,8 +454,8 @@ export class FleetService {
           scheduledDate: run.scheduledDate,
           status: run.status,
           orderCount: run.orders.length,
-          estimatedDuration: run.totalDuration ?? 0,
-          estimatedDistance: run.totalDistance ?? 0,
+          estimatedDuration: run.estimatedDurationMinutes ?? 0,
+          estimatedDistance: run.totalDistanceKm?.toNumber() ?? 0,
         })),
         totalRuns: driver.runs.length,
       }));

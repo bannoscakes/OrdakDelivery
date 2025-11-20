@@ -268,12 +268,13 @@ model Order {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Relations
-  customer        Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  deliveryAddress Address           @relation(fields: [deliveryAddressId], references: [id])
-  assignedRun     DeliveryRun?      @relation(fields: [assignedRunId], references: [id], onDelete: SetNull)
-  zone            DeliveryZone?     @relation(fields: [zoneId], references: [id], onDelete: SetNull)
-  runOrders       RunOrder[]
-  proofOfDelivery ProofOfDelivery[]
+  customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  deliveryAddress  Address           @relation(fields: [deliveryAddressId], references: [id])
+  assignedRun      DeliveryRun?      @relation(fields: [assignedRunId], references: [id], onDelete: SetNull)
+  zone             DeliveryZone?     @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  runOrders        RunOrder[]
+  proofOfDelivery  ProofOfDelivery[]
+  smsNotifications SmsNotification[]
 
   @@index([orderNumber])
   @@index([externalId, externalSource])
@@ -585,9 +586,11 @@ model SmsNotification {
   updatedAt        DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Relations
-  run DeliveryRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+  order Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  run   DeliveryRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
 
   @@index([type, status])
+  @@index([orderId])
   @@index([runId])
   @@index([scheduledDate])
   @@index([createdAt(sort: Desc)])
