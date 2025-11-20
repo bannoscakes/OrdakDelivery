@@ -355,6 +355,8 @@ model DeliveryRun {
   locationTracking LocationTracking[]
   smsNotifications SmsNotification[]
 
+  @@unique([scheduledDate, driverId], map: "unique_driver_per_date")
+  @@unique([scheduledDate, vehicleId], map: "unique_vehicle_per_date")
   @@index([runNumber])
   @@index([driverId])
   @@index([status])
