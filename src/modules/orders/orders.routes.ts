@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as ordersController from './orders.controller';
+import * as trackingController from '@modules/tracking/tracking.controller';
 import { authenticate, requireAdminOrDispatcher } from '@/middleware/auth.middleware';
 
 const router = Router();
@@ -69,5 +70,12 @@ router.post('/:id/delivered', ordersController.markAsDelivered);
  * @access  Private (Driver can mark for their runs, Admin/Dispatcher can mark any)
  */
 router.post('/:id/failed', ordersController.markAsFailed);
+
+/**
+ * @route   POST /api/v1/orders/:orderId/tracking-url
+ * @desc    Generate tracking URL for an order
+ * @access  Private (Admin, Dispatcher only)
+ */
+router.post('/:orderId/tracking-url', requireAdminOrDispatcher, trackingController.generateTrackingUrl);
 
 export default router;
