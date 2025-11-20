@@ -101,6 +101,7 @@ model Vehicle {
   year               Int
   vin                String?       @unique @db.VarChar(17)
   color              String?       @db.VarChar(30)
+  type               VehicleType?  @map("vehicle_type")
   capacityKg         Decimal?      @map("capacity_kg") @db.Decimal(10, 2)
   capacityCubicM     Decimal?      @map("capacity_cubic_m") @db.Decimal(10, 2)
   fuelType           FuelType?     @map("fuel_type")
@@ -134,6 +135,19 @@ enum VehicleStatus {
   active
   maintenance
   retired
+}
+
+enum OrderType {
+  delivery
+  pickup
+}
+
+enum VehicleType {
+  car
+  van
+  truck
+  bike
+  motorcycle
 }
 
 // =====================================================
@@ -209,6 +223,7 @@ model Order {
   externalMetadata      Json?       @map("external_metadata") @db.JsonB
   customerId            String?     @map("customer_id") @db.Uuid
   deliveryAddressId     String      @map("delivery_address_id") @db.Uuid
+  type                  OrderType?
   status                OrderStatus @default(pending)
   priority              Int         @default(0)
   scheduledDate         DateTime?   @map("scheduled_date") @db.Date
