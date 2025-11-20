@@ -259,26 +259,30 @@ export class FleetService {
         where: { status: 'ACTIVE' },
       });
 
-      const activeDrivers = await prisma.deliveryRun.count({
+      // Get distinct active drivers using groupBy
+      const activeDriverGroups = await prisma.deliveryRun.groupBy({
+        by: ['driverId'],
         where: {
           scheduledDate,
           driverId: { not: null },
         },
-        distinct: ['driverId'],
       });
+      const activeDrivers = activeDriverGroups.length;
 
       const availableDrivers = totalDrivers - activeDrivers;
 
       // Get vehicle counts
       const totalVehicles = await prisma.vehicle.count();
 
-      const activeVehicles = await prisma.deliveryRun.count({
+      // Get distinct active vehicles using groupBy
+      const activeVehicleGroups = await prisma.deliveryRun.groupBy({
+        by: ['vehicleId'],
         where: {
           scheduledDate,
           vehicleId: { not: null },
         },
-        distinct: ['vehicleId'],
       });
+      const activeVehicles = activeVehicleGroups.length;
 
       const availableVehicles = totalVehicles - activeVehicles;
 
