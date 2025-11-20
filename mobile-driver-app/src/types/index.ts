@@ -129,7 +129,8 @@ export interface Vehicle {
 // Delivery Run
 export interface DeliveryRun {
   id: string;
-  runNumber: string;
+  runNumber: string; // Auto-generated unique identifier (e.g., "RUN-20251120-001")
+  name: string; // Human-readable name (e.g., "Route 1 - Downtown")
   status: RunStatus;
   scheduledDate: string;
   driver: Driver;

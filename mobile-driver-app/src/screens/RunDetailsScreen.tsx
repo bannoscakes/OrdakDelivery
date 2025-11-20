@@ -110,7 +110,7 @@ const RunDetailsScreen: React.FC<RunDetailsScreenProps> = ({ navigation, route }
     );
   }
 
-  const deliveredCount = run.orders.filter(o => o.status === 'DELIVERED').length;
+  const deliveredCount = run.orders.filter(o => o.status === 'delivered').length;
   const totalOrders = run.orders.length;
   const progress = (deliveredCount / totalOrders) * 100;
 
@@ -208,9 +208,9 @@ const RunDetailsScreen: React.FC<RunDetailsScreenProps> = ({ navigation, route }
                     { backgroundColor: getOrderStatusColor(order.status) },
                   ]}>
                   <Text style={styles.orderStatusText}>
-                    {order.status === 'DELIVERED' ? '✓' :
-                     order.status === 'FAILED' ? '✗' :
-                     order.status === 'IN_PROGRESS' ? '→' : '○'}
+                    {order.status === 'delivered' ? '✓' :
+                     order.status === 'failed' ? '✗' :
+                     order.status === 'in_transit' ? '→' : '○'}
                   </Text>
                 </View>
               </View>
@@ -227,7 +227,7 @@ const RunDetailsScreen: React.FC<RunDetailsScreenProps> = ({ navigation, route }
 
       {/* Action Buttons */}
       <View style={styles.footer}>
-        {run.status === 'ASSIGNED' || run.status === 'PLANNED' ? (
+        {run.status === 'assigned' || run.status === 'planned' ? (
           <TouchableOpacity
             style={[styles.actionButton, styles.startButton]}
             onPress={handleStartRun}
@@ -238,7 +238,7 @@ const RunDetailsScreen: React.FC<RunDetailsScreenProps> = ({ navigation, route }
               <Text style={styles.actionButtonText}>Start Delivery Run</Text>
             )}
           </TouchableOpacity>
-        ) : run.status === 'IN_PROGRESS' ? (
+        ) : run.status === 'in_progress' ? (
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={[styles.actionButton, styles.navigateButton]}

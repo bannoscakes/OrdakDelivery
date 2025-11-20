@@ -46,7 +46,16 @@ const optimizeRunSchema = z.object({
 
 const listRunsSchema = z.object({
   query: z.object({
-    status: z.nativeEnum(DeliveryRunStatus).optional(),
+    status: z
+      .union([
+        z.nativeEnum(DeliveryRunStatus),
+        z.string().transform((val) => {
+          // Support comma-separated statuses: "assigned,planned,in_progress"
+          const statuses = val.split(',').map((s) => s.trim().toLowerCase());
+          return statuses.length === 1 ? statuses[0] : statuses;
+        }),
+      ])
+      .optional(),
     driverId: z.string().optional(),
     scheduledAfter: z
       .string()

@@ -20,8 +20,10 @@ interface UpdateRunInput {
   status?: 'draft' | 'planned' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
   driverId?: string;
   vehicleId?: string;
-  startTime?: Date;
-  endTime?: Date;
+  startTime?: Date; // Scheduled start time (Time only)
+  actualStartTime?: Date; // Actual start timestamp
+  endTime?: Date; // Scheduled end time (Time only)
+  actualEndTime?: Date; // Actual end timestamp
 }
 
 export class RunsService {
@@ -97,7 +99,7 @@ export class RunsService {
    * List runs with filters
    */
   async listRuns(params: {
-    status?: DeliveryRunStatus;
+    status?: DeliveryRunStatus | DeliveryRunStatus[] | string | string[];
     driverId?: string;
     scheduledAfter?: Date;
     scheduledBefore?: Date;
@@ -107,7 +109,11 @@ export class RunsService {
     const { page, limit, skip } = normalizePagination(params);
 
     const where: Prisma.DeliveryRunWhereInput = {
-      ...(params.status && { status: params.status }),
+      ...(params.status && {
+        status: Array.isArray(params.status)
+          ? { in: params.status as DeliveryRunStatus[] }
+          : (params.status as DeliveryRunStatus),
+      }),
       ...(params.driverId && { driverId: params.driverId }),
       ...(params.scheduledAfter && {
         scheduledDate: { gte: params.scheduledAfter },
@@ -402,10 +408,10 @@ export class RunsService {
       }
     }
 
-    // Update run status
+    // Update run status and record actual start time
     const updatedRun = await this.updateRun(runId, {
       status: 'in_progress',
-      startTime: new Date(),
+      actualStartTime: new Date(),
     });
 
     // Update orders to in_transit
@@ -446,10 +452,10 @@ export class RunsService {
       }
     }
 
-    // Update run status
+    // Update run status and record actual end time
     const updatedRun = await this.updateRun(runId, {
       status: 'completed',
-      endTime: new Date(),
+      actualEndTime: new Date(),
     });
 
     logger.info('Delivery run completed', { runId });
