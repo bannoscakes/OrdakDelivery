@@ -148,19 +148,19 @@ const RunDetailsScreen: React.FC<RunDetailsScreenProps> = ({ navigation, route }
               {run.vehicle.make} {run.vehicle.model} ({run.vehicle.licensePlate})
             </Text>
           </View>
-          {run.totalDistance && (
+          {run.totalDistanceKm && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Distance</Text>
               <Text style={styles.infoValue}>
-                {(run.totalDistance / 1000).toFixed(1)} km
+                {run.totalDistanceKm.toFixed(1)} km
               </Text>
             </View>
           )}
-          {run.totalDuration && (
+          {run.estimatedDurationMinutes && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Duration</Text>
               <Text style={styles.infoValue}>
-                {Math.round(run.totalDuration / 60)} min
+                {run.estimatedDurationMinutes} min
               </Text>
             </View>
           )}

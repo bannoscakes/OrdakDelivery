@@ -129,19 +129,21 @@ export interface Vehicle {
 // Delivery Run
 export interface DeliveryRun {
   id: string;
-  name: string;
+  runNumber: string;
   status: RunStatus;
   scheduledDate: string;
   driver: Driver;
   vehicle: Vehicle;
   orders: Order[];
-  routeGeometry?: GeoJSON.LineString;
-  totalDistance?: number;
-  totalDuration?: number;
-  startedAt?: string;
-  completedAt?: string;
+  optimizedRoute?: GeoJSON.LineString; // GeoJSON geometry of optimized route
+  totalDistanceKm?: number; // Distance in kilometers
+  estimatedDurationMinutes?: number; // Duration in minutes
+  actualStartTime?: string;
+  actualEndTime?: string;
   startLocation?: Coordinates;
-  endLocation?: Coordinates;
+  totalOrders: number;
+  deliveredOrders: number;
+  failedOrders: number;
   createdAt: string;
   updatedAt: string;
 }

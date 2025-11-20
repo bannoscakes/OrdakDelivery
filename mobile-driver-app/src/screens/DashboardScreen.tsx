@@ -156,15 +156,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
                   <Text style={styles.runDetailText}>
                     🚗 {run.vehicle.make} {run.vehicle.model}
                   </Text>
-                  {run.totalDistance && (
+                  {run.totalDistanceKm && (
                     <Text style={styles.runDetailText}>
-                      📏 {(run.totalDistance / 1000).toFixed(1)} km
+                      📏 {run.totalDistanceKm.toFixed(1)} km
                     </Text>
                   )}
                 </View>
-                {run.startedAt && (
+                {run.actualStartTime && (
                   <Text style={styles.runTime}>
-                    Started: {format(new Date(run.startedAt), 'h:mm a')}
+                    Started: {format(new Date(run.actualStartTime), 'h:mm a')}
                   </Text>
                 )}
               </TouchableOpacity>

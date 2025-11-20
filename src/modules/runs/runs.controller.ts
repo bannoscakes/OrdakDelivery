@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '@/utils/asyncHandler';
 import runsService from './runs.service';
 import { z } from 'zod';
-import { RunStatus } from '@prisma/client';
+import { DeliveryRunStatus } from '@prisma/client';
 
 const createRunSchema = z.object({
   body: z.object({
@@ -17,7 +17,7 @@ const createRunSchema = z.object({
 const updateRunSchema = z.object({
   body: z.object({
     name: z.string().min(1).optional(),
-    status: z.nativeEnum(RunStatus).optional(),
+    status: z.nativeEnum(DeliveryRunStatus).optional(),
     driverId: z.string().optional(),
     vehicleId: z.string().optional(),
     startTime: z
@@ -46,7 +46,7 @@ const optimizeRunSchema = z.object({
 
 const listRunsSchema = z.object({
   query: z.object({
-    status: z.nativeEnum(RunStatus).optional(),
+    status: z.nativeEnum(DeliveryRunStatus).optional(),
     driverId: z.string().optional(),
     scheduledAfter: z
       .string()
