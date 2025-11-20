@@ -158,12 +158,12 @@ curl https://api.ordakdelivery.com/api/v1/tracking/clxxx123456789
       "displayText": "Wednesday, November 20 between 2:00PM - 4:00PM"
     },
     "deliveryAddress": {
-      "addressLine1": "123 Main Street",
+      "addressLine1": "Near Toronto",
       "city": "Toronto",
       "stateProvince": "ON",
       "postalCode": "M5V 3A8",
-      "latitude": 43.65107,
-      "longitude": -79.347015
+      "latitude": 43.65,
+      "longitude": -79.35
     },
     "driver": {
       "firstName": "John",
@@ -294,28 +294,45 @@ npx prisma migrate dev --name add_order_tracking_fields
 npm run db:generate
 ```
 
-### Migration SQL (Auto-generated)
+### Migration SQL (Manual Steps for Existing Data)
+
+**Important**: cuid() is a Prisma-level generator, not available in SQL. For existing data, follow these steps:
 
 ```sql
--- Add tracking fields to orders table
+-- Step 1: Add nullable tracking_number column (no default)
 ALTER TABLE "orders"
-  ADD COLUMN "tracking_number" VARCHAR(50) NOT NULL DEFAULT cuid(),
+  ADD COLUMN "tracking_number" VARCHAR(50),
   ADD COLUMN "customer_status" VARCHAR(100),
   ADD COLUMN "customer_status_updated_at" TIMESTAMPTZ(6);
 
--- Add unique constraint
-ALTER TABLE "orders"
-  ADD CONSTRAINT "orders_tracking_number_key" UNIQUE ("tracking_number");
+-- Step 2: Backfill tracking numbers for existing orders
+-- Option A: Use PostgreSQL gen_random_uuid() as temporary solution
+UPDATE orders
+SET tracking_number = 'trk_' || replace(gen_random_uuid()::text, '-', '')
+WHERE tracking_number IS NULL;
 
--- Add index
-CREATE INDEX "orders_tracking_number_idx" ON "orders"("tracking_number");
+-- Option B: Or use application-level backfill (recommended)
+-- Run a script that generates proper CUIDs via Prisma client
 
--- Backfill existing orders (optional - if you have existing data)
+-- Step 3: Backfill customer status for existing orders
 UPDATE orders
 SET customer_status = 'Order Received',
     customer_status_updated_at = NOW()
 WHERE customer_status IS NULL;
+
+-- Step 4: Add NOT NULL constraint after backfill
+ALTER TABLE "orders"
+  ALTER COLUMN "tracking_number" SET NOT NULL;
+
+-- Step 5: Add unique constraint
+ALTER TABLE "orders"
+  ADD CONSTRAINT "orders_tracking_number_key" UNIQUE ("tracking_number");
+
+-- Step 6: Add index for fast lookups
+CREATE INDEX "orders_tracking_number_idx" ON "orders"("tracking_number");
 ```
+
+**For new databases** (no existing data), Prisma will handle the default via `@default(cuid())` automatically.
 
 ---
 
@@ -376,15 +393,20 @@ WHERE customer_status IS NULL;
 ✅ Safe to show:
 - Order number
 - Tracking number
-- Order status (customer-friendly)
-- Delivery address (street, city, state, postal code)
+- Order status (customer-friendly, from stored customerStatus field)
+- Delivery address (**coarse location only**: "Near {city}", city, state, postal code)
+- GPS coordinates (**rounded to 2 decimal places** for ~1km precision)
 - Estimated delivery window
 - Driver first name only
 - Vehicle information (make, model, color, license plate)
 - Timeline with timestamps
+- Proof of delivery status (**booleans only**: hasSignature, hasPhotos)
 
 ### What's Protected
-🔒 Not exposed:
+🔒 Not exposed publicly:
+- **Street address** (full addressLine1) - masked as "Near {city}"
+- **Precise GPS coordinates** - rounded to protect exact location
+- **Recipient name** - removed from proof of delivery
 - Customer email
 - Customer phone number
 - Customer full name

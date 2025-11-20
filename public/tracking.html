@@ -290,6 +290,41 @@
     const pathParts = window.location.pathname.split('/');
     const trackingNumber = pathParts[pathParts.length - 1];
 
+    // Helper function to create element with text content (XSS-safe)
+    function createElement(tag, options = {}) {
+      const element = document.createElement(tag);
+
+      if (options.className) {
+        element.className = options.className;
+      }
+
+      if (options.textContent) {
+        element.textContent = options.textContent;
+      }
+
+      if (options.children) {
+        options.children.forEach(child => {
+          if (child) element.appendChild(child);
+        });
+      }
+
+      return element;
+    }
+
+    // Whitelist for status CSS classes (XSS protection)
+    function getStatusClass(status) {
+      const validStatuses = {
+        'delivered': '',
+        'failed': 'failed',
+        'cancelled': 'failed',
+        'pending': 'pending',
+        'assigned': 'pending',
+        'in_transit': 'pending'
+      };
+
+      return validStatuses[status] || 'pending';
+    }
+
     // Fetch tracking information
     async function fetchTrackingInfo() {
       try {
@@ -313,104 +348,230 @@
     }
 
     function displayTrackingInfo(data) {
-      const statusClass = data.status === 'delivered' ? '' :
-                         data.status === 'failed' || data.status === 'cancelled' ? 'failed' :
-                         'pending';
+      const contentDiv = document.getElementById('content');
+      contentDiv.textContent = ''; // Clear existing content safely
 
-      const html = `
-        <div class="card">
-          <div style="text-align: center;">
-            <span class="status-badge ${statusClass}">${data.customerStatus}</span>
-            <div class="order-number">Order #${data.orderNumber}</div>
-          </div>
+      // Card 1: Status and Order Info
+      const statusCard = createElement('div', { className: 'card' });
+      const statusCenter = createElement('div');
+      statusCenter.style.textAlign = 'center';
 
-          ${data.estimatedArrival ? `
-            <div class="delivery-window">
-              <h3>📅 Estimated Delivery</h3>
-              <p>${data.estimatedArrival.displayText}</p>
-            </div>
-          ` : '<div class="delivery-window"><h3>📅 Delivery Window</h3><p>To be scheduled</p></div>'}
+      const statusBadge = createElement('span', {
+        className: `status-badge ${getStatusClass(data.status)}`,
+        textContent: data.customerStatus || 'Processing'
+      });
 
-          ${data.driver || data.vehicle ? `
-            <div class="info-grid">
-              ${data.driver ? `
-                <div class="info-item">
-                  <div class="info-label">Driver</div>
-                  <div class="info-value">${data.driver.firstName}</div>
-                </div>
-              ` : ''}
-              ${data.vehicle ? `
-                <div class="info-item">
-                  <div class="info-label">Vehicle</div>
-                  <div class="info-value">${data.vehicle.color} ${data.vehicle.make} ${data.vehicle.model}</div>
-                </div>
-              ` : ''}
-            </div>
-          ` : ''}
-        </div>
+      const orderNumber = createElement('div', {
+        className: 'order-number',
+        textContent: `Order #${data.orderNumber || 'N/A'}`
+      });
 
-        <div class="card">
-          <h2>📍 Delivery Address</h2>
-          <p>${data.deliveryAddress.addressLine1}</p>
-          <p>${data.deliveryAddress.city}, ${data.deliveryAddress.stateProvince} ${data.deliveryAddress.postalCode}</p>
+      statusCenter.appendChild(statusBadge);
+      statusCenter.appendChild(orderNumber);
+      statusCard.appendChild(statusCenter);
 
-          <div class="map-placeholder">
-            📍 Map view coming soon (Phase 2)
-          </div>
-        </div>
+      // Delivery Window
+      const deliveryWindow = createElement('div', { className: 'delivery-window' });
+      const deliveryTitle = createElement('h3', { textContent: '📅 Estimated Delivery' });
+      const deliveryText = createElement('p', {
+        textContent: data.estimatedArrival
+          ? data.estimatedArrival.displayText
+          : 'To be scheduled'
+      });
+      deliveryWindow.appendChild(deliveryTitle);
+      deliveryWindow.appendChild(deliveryText);
+      statusCard.appendChild(deliveryWindow);
 
-        <div class="card">
-          <h2>📋 Delivery Timeline</h2>
-          <div class="timeline">
-            ${data.timeline.map(event => `
-              <div class="timeline-item">
-                <div class="timeline-dot ${event.completed ? '' : 'pending'}"></div>
-                <div class="timeline-content">
-                  <div class="timeline-title">${event.title}</div>
-                  <div class="timeline-description">${event.description}</div>
-                  ${event.timestamp ? `
-                    <div class="timeline-time">${new Date(event.timestamp).toLocaleString()}</div>
-                  ` : ''}
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
+      // Driver and Vehicle Info
+      if (data.driver || data.vehicle) {
+        const infoGrid = createElement('div', { className: 'info-grid' });
 
-        ${data.proofOfDelivery ? `
-          <div class="card">
-            <h2>✅ Proof of Delivery</h2>
-            <div class="info-grid">
-              ${data.proofOfDelivery.recipientName ? `
-                <div class="info-item">
-                  <div class="info-label">Received By</div>
-                  <div class="info-value">${data.proofOfDelivery.recipientName}</div>
-                </div>
-              ` : ''}
-              <div class="info-item">
-                <div class="info-label">Signature</div>
-                <div class="info-value">${data.proofOfDelivery.hasSignature ? '✓ Yes' : '- No'}</div>
-              </div>
-              <div class="info-item">
-                <div class="info-label">Photos</div>
-                <div class="info-value">${data.proofOfDelivery.hasPhotos ? '✓ Yes' : '- No'}</div>
-              </div>
-            </div>
-          </div>
-        ` : ''}
-      `;
+        if (data.driver) {
+          const driverItem = createElement('div', { className: 'info-item' });
+          const driverLabel = createElement('div', {
+            className: 'info-label',
+            textContent: 'Driver'
+          });
+          const driverValue = createElement('div', {
+            className: 'info-value',
+            textContent: data.driver.firstName || 'Unknown'
+          });
+          driverItem.appendChild(driverLabel);
+          driverItem.appendChild(driverValue);
+          infoGrid.appendChild(driverItem);
+        }
 
-      document.getElementById('content').innerHTML = html;
+        if (data.vehicle) {
+          const vehicleItem = createElement('div', { className: 'info-item' });
+          const vehicleLabel = createElement('div', {
+            className: 'info-label',
+            textContent: 'Vehicle'
+          });
+          const vehicleValue = createElement('div', {
+            className: 'info-value',
+            textContent: `${data.vehicle.color || ''} ${data.vehicle.make || ''} ${data.vehicle.model || ''}`.trim() || 'Unknown'
+          });
+          vehicleItem.appendChild(vehicleLabel);
+          vehicleItem.appendChild(vehicleValue);
+          infoGrid.appendChild(vehicleItem);
+        }
+
+        statusCard.appendChild(infoGrid);
+      }
+
+      contentDiv.appendChild(statusCard);
+
+      // Card 2: Delivery Address
+      const addressCard = createElement('div', { className: 'card' });
+      const addressTitle = createElement('h2', { textContent: '📍 Delivery Address' });
+      const addressLine1 = createElement('p', {
+        textContent: data.deliveryAddress?.addressLine1 || 'Address not available'
+      });
+      const addressLine2 = createElement('p', {
+        textContent: data.deliveryAddress
+          ? `${data.deliveryAddress.city || ''}, ${data.deliveryAddress.stateProvince || ''} ${data.deliveryAddress.postalCode || ''}`.trim()
+          : ''
+      });
+
+      const mapPlaceholder = createElement('div', {
+        className: 'map-placeholder',
+        textContent: '📍 Map view coming soon (Phase 2)'
+      });
+
+      addressCard.appendChild(addressTitle);
+      addressCard.appendChild(addressLine1);
+      if (addressLine2.textContent) {
+        addressCard.appendChild(addressLine2);
+      }
+      addressCard.appendChild(mapPlaceholder);
+      contentDiv.appendChild(addressCard);
+
+      // Card 3: Timeline
+      const timelineCard = createElement('div', { className: 'card' });
+      const timelineTitle = createElement('h2', { textContent: '📋 Delivery Timeline' });
+      const timelineDiv = createElement('div', { className: 'timeline' });
+
+      if (data.timeline && Array.isArray(data.timeline)) {
+        data.timeline.forEach(event => {
+          const timelineItem = createElement('div', { className: 'timeline-item' });
+
+          const timelineDot = createElement('div', {
+            className: `timeline-dot ${event.completed ? '' : 'pending'}`
+          });
+
+          const timelineContent = createElement('div', { className: 'timeline-content' });
+          const timelineEventTitle = createElement('div', {
+            className: 'timeline-title',
+            textContent: event.title || 'Unknown'
+          });
+          const timelineDescription = createElement('div', {
+            className: 'timeline-description',
+            textContent: event.description || ''
+          });
+
+          timelineContent.appendChild(timelineEventTitle);
+          timelineContent.appendChild(timelineDescription);
+
+          if (event.timestamp) {
+            const timelineTime = createElement('div', {
+              className: 'timeline-time',
+              textContent: new Date(event.timestamp).toLocaleString()
+            });
+            timelineContent.appendChild(timelineTime);
+          }
+
+          timelineItem.appendChild(timelineDot);
+          timelineItem.appendChild(timelineContent);
+          timelineDiv.appendChild(timelineItem);
+        });
+      }
+
+      timelineCard.appendChild(timelineTitle);
+      timelineCard.appendChild(timelineDiv);
+      contentDiv.appendChild(timelineCard);
+
+      // Card 4: Proof of Delivery (if available)
+      if (data.proofOfDelivery) {
+        const podCard = createElement('div', { className: 'card' });
+        const podTitle = createElement('h2', { textContent: '✅ Proof of Delivery' });
+        const podGrid = createElement('div', { className: 'info-grid' });
+
+        if (data.proofOfDelivery.recipientName) {
+          const recipientItem = createElement('div', { className: 'info-item' });
+          const recipientLabel = createElement('div', {
+            className: 'info-label',
+            textContent: 'Received By'
+          });
+          const recipientValue = createElement('div', {
+            className: 'info-value',
+            textContent: data.proofOfDelivery.recipientName
+          });
+          recipientItem.appendChild(recipientLabel);
+          recipientItem.appendChild(recipientValue);
+          podGrid.appendChild(recipientItem);
+        }
+
+        // Signature
+        const signatureItem = createElement('div', { className: 'info-item' });
+        const signatureLabel = createElement('div', {
+          className: 'info-label',
+          textContent: 'Signature'
+        });
+        const signatureValue = createElement('div', {
+          className: 'info-value',
+          textContent: data.proofOfDelivery.hasSignature ? '✓ Yes' : '- No'
+        });
+        signatureItem.appendChild(signatureLabel);
+        signatureItem.appendChild(signatureValue);
+        podGrid.appendChild(signatureItem);
+
+        // Photos
+        const photosItem = createElement('div', { className: 'info-item' });
+        const photosLabel = createElement('div', {
+          className: 'info-label',
+          textContent: 'Photos'
+        });
+        const photosValue = createElement('div', {
+          className: 'info-value',
+          textContent: data.proofOfDelivery.hasPhotos ? '✓ Yes' : '- No'
+        });
+        photosItem.appendChild(photosLabel);
+        photosItem.appendChild(photosValue);
+        podGrid.appendChild(photosItem);
+
+        podCard.appendChild(podTitle);
+        podCard.appendChild(podGrid);
+        contentDiv.appendChild(podCard);
+      }
     }
 
     function showError(title, description) {
-      document.getElementById('content').innerHTML = `
-        <div class="card error-message">
-          <div class="error-icon">⚠️</div>
-          <h2 class="error-title">${title}</h2>
-          <p class="error-description">${description}</p>
-        </div>
-      `;
+      const contentDiv = document.getElementById('content');
+      contentDiv.textContent = ''; // Clear existing content safely
+
+      const errorCard = createElement('div', {
+        className: 'card error-message'
+      });
+
+      const errorIcon = createElement('div', {
+        className: 'error-icon',
+        textContent: '⚠️'
+      });
+
+      const errorTitle = createElement('h2', {
+        className: 'error-title',
+        textContent: title
+      });
+
+      const errorDescription = createElement('p', {
+        className: 'error-description',
+        textContent: description
+      });
+
+      errorCard.appendChild(errorIcon);
+      errorCard.appendChild(errorTitle);
+      errorCard.appendChild(errorDescription);
+      contentDiv.appendChild(errorCard);
     }
 
     // Load tracking info on page load

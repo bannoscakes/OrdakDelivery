@@ -79,14 +79,14 @@ export class TrackingService {
       const activeRun = order.runOrders[0]?.run;
       const pod = order.proofOfDelivery[0];
 
-      // Build tracking info response
+      // Build tracking info response (privacy-focused for public API)
       const trackingInfo: TrackingInfo = {
         trackingNumber: order.trackingNumber,
         orderNumber: order.orderNumber,
 
-        // Status
+        // Status (use stored customerStatus to keep updateCustomerStatus in sync)
         status: order.status,
-        customerStatus: this.getCustomerFriendlyStatus(order.status),
+        customerStatus: order.customerStatus || this.getCustomerFriendlyStatus(order.status),
 
         // Delivery window
         estimatedArrival:
@@ -101,15 +101,19 @@ export class TrackingService {
               }
             : null,
 
-        // Delivery address (partial - no customer name for privacy)
+        // Delivery address (coarse location only - no street address for privacy)
         deliveryAddress: {
-          addressLine1: order.deliveryAddress.line1,
+          addressLine1: `Near ${order.deliveryAddress.city}`, // Masked for privacy
           city: order.deliveryAddress.city,
           stateProvince: order.deliveryAddress.stateProvince || '',
           postalCode: order.deliveryAddress.postalCode,
-          // Coordinates for map display (Phase 2)
-          latitude: order.deliveryAddress.latitude?.toNumber() || 0,
-          longitude: order.deliveryAddress.longitude?.toNumber() || 0,
+          // Coordinates rounded to ~1km precision for privacy (2 decimal places)
+          latitude: order.deliveryAddress.latitude
+            ? Math.round(order.deliveryAddress.latitude.toNumber() * 100) / 100
+            : 0,
+          longitude: order.deliveryAddress.longitude
+            ? Math.round(order.deliveryAddress.longitude.toNumber() * 100) / 100
+            : 0,
         },
 
         // Driver info (if assigned)
@@ -135,13 +139,13 @@ export class TrackingService {
         // Timeline
         timeline: this.buildTimeline(order, activeRun),
 
-        // Delivery completed info
+        // Delivery completed info (no recipient name for privacy)
         completedAt: order.actualDeliveryTime,
         proofOfDelivery: pod
           ? {
               hasSignature: !!pod.signatureUrl,
               hasPhotos: (pod.photoUrls?.length || 0) > 0,
-              recipientName: pod.recipientName,
+              recipientName: null, // Removed for privacy (public endpoint)
             }
           : null,
       };
@@ -280,9 +284,17 @@ export class TrackingService {
    *
    * @param trackingNumber - Unique tracking number
    * @returns Full tracking URL
+   * @throws {AppError} If tracking number is missing or invalid
    */
   generateTrackingUrl(trackingNumber: string): string {
-    const baseUrl = config.TRACKING_BASE_URL || 'http://localhost:3000';
+    if (!trackingNumber || trackingNumber.trim() === '') {
+      throw createAppError(500, 'Cannot generate tracking URL: tracking number is missing');
+    }
+
+    const rawBaseUrl = config.TRACKING_BASE_URL || 'http://localhost:3000';
+    // Remove trailing slashes to prevent double-slash in URL
+    const baseUrl = rawBaseUrl.replace(/\/+$/, '');
+
     return `${baseUrl}/track/${trackingNumber}`;
   }
 
@@ -319,6 +331,7 @@ export class TrackingService {
    *
    * @param orderId - Order ID
    * @returns Tracking URL response
+   * @throws {AppError} If order not found or tracking number missing
    */
   async generateAndSaveTrackingUrl(orderId: string): Promise<TrackingUrlResponse> {
     logger.info('Generating tracking URL', { orderId });
@@ -333,7 +346,15 @@ export class TrackingService {
         throw createAppError(404, `Order ${orderId} not found`);
       }
 
-      // Generate tracking URL
+      // Check if tracking number exists (legacy orders might not have one)
+      if (!order.trackingNumber) {
+        throw createAppError(
+          400,
+          `Order ${orderId} is missing tracking number. This is likely a legacy order that needs migration.`
+        );
+      }
+
+      // Generate tracking URL (will validate tracking number is not empty)
       const trackingUrl = this.generateTrackingUrl(order.trackingNumber);
 
       // Save to order if not already set
