@@ -5,7 +5,7 @@ import { Driver, DriverStatus, Prisma } from '@prisma/client';
 import { MAX_PAGINATION_LIMIT, DEFAULT_PAGINATION_LIMIT } from '@/constants/pagination';
 import { getBusyResourceIds } from '@/utils/availability';
 import { MS_PER_WEEK } from '@/constants/time';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 
 interface CreateDriverInput {
   email: string;
@@ -195,7 +195,7 @@ export class DriversService {
 
   /**
    * Delete driver
-   * Note: This will cascade delete the associated User record
+   * Deletes the User record, which will cascade delete the Driver
    */
   async deleteDriver(id: string): Promise<void> {
     // Check if driver has active runs
@@ -212,12 +212,22 @@ export class DriversService {
       throw new AppError(400, 'Cannot delete driver with active delivery runs');
     }
 
-    // Delete driver (User will be cascade deleted)
-    await prisma.driver.delete({
+    // Get driver to find userId
+    const driver = await prisma.driver.findUnique({
       where: { id },
+      select: { userId: true },
     });
 
-    logger.info('Driver deleted', { driverId: id });
+    if (!driver) {
+      throw new AppError(404, 'Driver not found');
+    }
+
+    // Delete User (Driver will be cascade deleted)
+    await prisma.user.delete({
+      where: { id: driver.userId },
+    });
+
+    logger.info('Driver and associated user deleted', { driverId: id, userId: driver.userId });
   }
 
   /**
