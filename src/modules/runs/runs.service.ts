@@ -265,7 +265,10 @@ export class RunsService {
       return sum + weight;
     }, 0);
 
-    const totalPackages = orders.reduce((sum, order) => sum + order.packageCount, 0);
+    const totalPackages = orders.reduce((sum, order) => {
+      const packages = order.packageCount ?? 0;
+      return sum + packages;
+    }, 0);
 
     return { totalWeightKg, totalPackages };
   }

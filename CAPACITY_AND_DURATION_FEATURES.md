@@ -31,7 +31,7 @@ When creating a run or adding orders to an existing run:
 - Throws descriptive error if capacity exceeded
 
 **Error Messages:**
-```
+```text
 Orders exceed vehicle weight capacity (150.50 kg / 100.00 kg)
 Orders exceed vehicle capacity (25 packages / ~2.50 m³)
 ```
@@ -322,7 +322,7 @@ vehicleId        String?   // Foreign key to Vehicle
 - Existing orders: 300 kg, 15 packages
 - New orders: 150 kg, 8 packages
 - Total: 450 kg, 23 packages
-- Vehicle capacity: 500 kg, 15 m³
+- Vehicle capacity: 500 kg, 1.5 m³
 - Result: ✅ Passes weight, ❌ Fails volume (23 * 0.1 = 2.3 m³ > 1.5 m³)
 
 **Error:**
@@ -511,7 +511,7 @@ if (!isValid) {
 ### Manual Testing Scenarios
 
 #### Scenario 1: Small Van - Capacity Exceeded
-```
+```text
 Vehicle: Small Van (100 kg, 2 m³)
 Orders:
   - Order 1: 40 kg, 2 packages
@@ -522,7 +522,7 @@ Result: ❌ Weight exceeded
 ```
 
 #### Scenario 2: Large Truck - All Valid
-```
+```text
 Vehicle: Large Truck (1000 kg, 20 m³)
 Orders:
   - Order 1: 150 kg, 10 packages (delivery, 5 min)
@@ -534,14 +534,14 @@ Result: ✅ All constraints met
 ```
 
 #### Scenario 3: Run Without Vehicle
-```
+```text
 Vehicle: None
 Orders: Any
 Result: ✅ No capacity validation (allowed for planning)
 ```
 
 #### Scenario 4: Optimization with Time Windows
-```
+```text
 Vehicle: Van (500 kg)
 Orders:
   - Order 1: 8:00-10:00, 50 kg, 5 min service
@@ -613,7 +613,7 @@ capacityUtilizationPercent  Decimal?  @db.Decimal(5, 2)
 ```
 
 Calculate and display capacity usage:
-```
+```text
 Current Load: 450 kg / 500 kg (90% utilized)
 ```
 
@@ -734,6 +734,6 @@ Response: {
 
 ---
 
-**End of Capacity and Duration Features Documentation**
+## End of Capacity and Duration Features Documentation
 
 This feature is complete in BUILD MODE and ready for database testing.
