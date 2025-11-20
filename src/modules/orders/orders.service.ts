@@ -1,87 +1,216 @@
 import prisma from '@config/database';
 import logger from '@config/logger';
 import { AppError, createAppError } from '@/middleware/errorHandler';
-import { Order, OrderType, OrderStatus, Prisma } from '@prisma/client';
-import type { CreateOrderInput, UpdateOrderInput } from './orders.types';
+import { Order, OrderType, OrderStatus, Prisma, Customer, Address } from '@prisma/client';
+import type { CreateOrderInput, UpdateOrderInput, ProofOfDeliveryInput } from './orders.types';
 import { normalizePagination } from '@/utils/pagination';
 import { geocodeAddressToWKT } from '@/utils/geocoding';
+
+// Type for createOrder return with included relations
+type OrderWithRelations = Order & {
+  customer: Customer;
+  deliveryAddress: Address;
+};
 
 export class OrdersService {
   /**
    * Create a new order with automatic geocoding
+   * FIXED: Creates Address record first, then links Order via deliveryAddressId
+   * Uses transaction for atomicity
+   *
    * @param input - Order creation data including customer, address, and items
-   * @returns Promise resolving to the created order
+   * @returns Promise resolving to the created order with customer and deliveryAddress relations
    * @throws {AppError} If order creation fails
    */
-  async createOrder(input: CreateOrderInput): Promise<Order> {
+  async createOrder(input: CreateOrderInput): Promise<OrderWithRelations> {
+    // FIXED: Move geocoding OUTSIDE transaction to avoid external I/O inside transaction
+    let locationWKT: string | null = null;
+    let geocodingSucceeded = false;
+
     try {
-      // Find or create customer
-      const customer = await prisma.customer.upsert({
-        where: {
-          email: input.customer.email || `noemail_${Date.now()}@temp.local`,
-        },
-        update: {
-          firstName: input.customer.firstName,
-          lastName: input.customer.lastName,
-          phone: input.customer.phone,
-        },
-        create: {
-          email: input.customer.email,
-          phone: input.customer.phone,
-          firstName: input.customer.firstName,
-          lastName: input.customer.lastName,
-        },
-      });
-
-      // Geocode address
-      const fullAddress = `${input.address.line1}, ${input.address.city}, ${input.address.province} ${input.address.postalCode}, ${input.address.country || 'CA'}`;
-      const { locationWKT, geocoded } = await geocodeAddressToWKT(
+      const fullAddress = `${input.address.line1}, ${input.address.city}, ${input.address.stateProvince || ''} ${input.address.postalCode}, ${input.address.country || 'US'}`;
+      const geocodeResult = await geocodeAddressToWKT(
         fullAddress,
-        input.address.country || 'CA'
+        input.address.country || 'US'
       );
+      locationWKT = geocodeResult.locationWKT;
+      geocodingSucceeded = geocodeResult.geocoded;
+    } catch (geocodeError) {
+      // Log geocoding failure but continue with order creation
+      logger.warn('Geocoding failed, creating order without location', {
+        orderNumber: input.orderNumber,
+        error: geocodeError instanceof Error ? geocodeError.message : String(geocodeError),
+      });
+    }
 
-      // Create order
-      const order = await prisma.order.create({
-        data: {
-          orderNumber: input.orderNumber,
-          type: input.type,
-          status: OrderStatus.PENDING,
-          customerId: customer.id,
-          addressLine1: input.address.line1,
-          addressLine2: input.address.line2,
-          city: input.address.city,
-          province: input.address.province,
-          postalCode: input.address.postalCode,
-          country: input.address.country || 'CA',
-          // Note: location field removed - Order model uses deliveryAddressId instead
-          // TODO: Fix this service to create Address record and link via deliveryAddressId
-          geocoded,
-          geocodedAt: geocoded ? new Date() : null,
-          scheduledDate: input.scheduledDate,
-          timeWindowStart: input.timeWindowStart,
-          timeWindowEnd: input.timeWindowEnd,
-          items: input.items as unknown as Prisma.InputJsonValue,
-          notes: input.notes,
-          specialInstructions: input.specialInstructions,
-        },
-        include: {
-          customer: true,
-        },
+    try {
+      // Use transaction to ensure atomicity (Customer + Address + Order created together)
+      const order = await prisma.$transaction(async (tx) => {
+        // 1. Find or create customer
+        // FIXED: Avoid passing undefined to Prisma where clause
+        let customer: Customer;
+
+        if (input.customer.email) {
+          // If email provided, try to find existing customer
+          const existingCustomer = await tx.customer.findUnique({
+            where: { email: input.customer.email },
+          });
+
+          if (existingCustomer) {
+            // Update existing customer
+            customer = await tx.customer.update({
+              where: { id: existingCustomer.id },
+              data: {
+                firstName: input.customer.firstName,
+                lastName: input.customer.lastName,
+                phone: input.customer.phone,
+                company: input.customer.company,
+              },
+            });
+          } else {
+            // Create new customer with email
+            customer = await tx.customer.create({
+              data: {
+                email: input.customer.email,
+                phone: input.customer.phone,
+                firstName: input.customer.firstName,
+                lastName: input.customer.lastName,
+                company: input.customer.company,
+              },
+            });
+          }
+        } else {
+          // No email - always create new customer
+          customer = await tx.customer.create({
+            data: {
+              email: input.customer.email,
+              phone: input.customer.phone,
+              firstName: input.customer.firstName,
+              lastName: input.customer.lastName,
+              company: input.customer.company,
+            },
+          });
+        }
+
+        // 2. Create Address record with geometry if geocoding succeeded
+        let address: Address;
+
+        if (geocodingSucceeded && locationWKT) {
+          // FIXED: Use raw query to insert geometry field correctly
+          // First create address without geometry
+          const tempAddress = await tx.address.create({
+            data: {
+              customerId: customer.id,
+              line1: input.address.line1,
+              line2: input.address.line2,
+              city: input.address.city,
+              stateProvince: input.address.stateProvince,
+              postalCode: input.address.postalCode,
+              country: input.address.country || 'US',
+              geocodedAt: new Date(),
+              deliveryInstructions: input.address.deliveryInstructions,
+            },
+          });
+
+          // Update with geometry using raw query
+          await tx.$executeRaw`
+            UPDATE addresses
+            SET location = ST_GeomFromText(${locationWKT}, 4326)
+            WHERE id = ${tempAddress.id}::uuid
+          `;
+
+          // Fetch the complete address with geometry
+          address = (await tx.address.findUnique({
+            where: { id: tempAddress.id },
+          }))!;
+        } else {
+          // Create address without geometry
+          address = await tx.address.create({
+            data: {
+              customerId: customer.id,
+              line1: input.address.line1,
+              line2: input.address.line2,
+              city: input.address.city,
+              stateProvince: input.address.stateProvince,
+              postalCode: input.address.postalCode,
+              country: input.address.country || 'US',
+              deliveryInstructions: input.address.deliveryInstructions,
+            },
+          });
+        }
+
+        // 3. Create Order with deliveryAddressId
+        const createdOrder = await tx.order.create({
+          data: {
+            orderNumber: input.orderNumber,
+            externalId: input.externalId,
+            externalSource: input.externalSource || 'manual',
+            type: input.type,
+            status: OrderStatus.pending,
+            customerId: customer.id,
+            deliveryAddressId: address.id,
+            scheduledDate: input.scheduledDate,
+            deliveryWindowStart: input.deliveryWindowStart,
+            deliveryWindowEnd: input.deliveryWindowEnd,
+            priority: input.priority ?? 0,
+            weightKg: input.weightKg,
+            dimensionsCm: input.dimensionsCm,
+            packageCount: input.packageCount ?? 1,
+            specialInstructions: input.specialInstructions,
+            requiresSignature: input.requiresSignature ?? false,
+            fragile: input.fragile ?? false,
+            subtotal: input.subtotal,
+            deliveryFee: input.deliveryFee,
+            tax: input.tax,
+            total: input.total,
+            currency: input.currency || 'USD',
+            notes: input.notes,
+            // Items: Consider storing in externalMetadata or separate table
+            ...(input.items
+              ? {
+                  externalMetadata: {
+                    items: input.items,
+                  } as Prisma.InputJsonValue,
+                }
+              : {}),
+          },
+          include: {
+            customer: true,
+            deliveryAddress: true,
+          },
+        });
+
+        return createdOrder;
       });
 
-      logger.info('Order created', { orderId: order.id, orderNumber: order.orderNumber });
+      logger.info('Order created', {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        deliveryAddressId: order.deliveryAddressId,
+        geocoded: geocodingSucceeded,
+      });
 
       return order;
     } catch (error) {
-      logger.error('Failed to create order', { input, error });
+      // FIXED: Remove PII from error logs - only log non-sensitive identifiers
+      logger.error('Failed to create order', {
+        orderNumber: input.orderNumber,
+        externalId: input.externalId,
+        externalSource: input.externalSource,
+        type: input.type,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      });
       throw createAppError(500, 'Failed to create order', error);
     }
   }
 
   /**
    * Get order by ID
+   * FIXED: Includes deliveryAddress relation
+   *
    * @param id - Order ID
-   * @returns Promise resolving to the order
+   * @returns Promise resolving to the order with relations
    * @throws {AppError} 404 if order not found
    */
   async getOrderById(id: string): Promise<Order> {
@@ -89,12 +218,18 @@ export class OrdersService {
       where: { id },
       include: {
         customer: true,
+        deliveryAddress: true, // FIXED: Include address relation
         assignedRun: {
           include: {
-            driver: true,
+            driver: {
+              include: {
+                user: true,
+              },
+            },
             vehicle: true,
           },
         },
+        proofOfDelivery: true, // FIXED: Include POD records
       },
     });
 
@@ -107,18 +242,16 @@ export class OrdersService {
 
   /**
    * List orders with filters and pagination
+   * FIXED: Includes deliveryAddress relation
+   *
    * @param params - Filter and pagination parameters
-   * @param params.status - Filter by order status
-   * @param params.type - Filter by order type
-   * @param params.scheduledAfter - Filter orders scheduled after this date
-   * @param params.scheduledBefore - Filter orders scheduled before this date
-   * @param params.page - Page number (default: 1)
-   * @param params.limit - Items per page (default: 20, max: 100)
    * @returns Promise resolving to paginated orders list
    */
   async listOrders(params: {
     status?: OrderStatus;
     type?: OrderType;
+    customerId?: string;
+    assignedRunId?: string;
     scheduledAfter?: Date;
     scheduledBefore?: Date;
     page?: number;
@@ -129,6 +262,8 @@ export class OrdersService {
     const where: Prisma.OrderWhereInput = {
       ...(params.status && { status: params.status }),
       ...(params.type && { type: params.type }),
+      ...(params.customerId && { customerId: params.customerId }),
+      ...(params.assignedRunId !== undefined && { assignedRunId: params.assignedRunId }),
       ...(params.scheduledAfter && {
         scheduledDate: { gte: params.scheduledAfter },
       }),
@@ -142,6 +277,7 @@ export class OrdersService {
         where,
         include: {
           customer: true,
+          deliveryAddress: true, // FIXED: Include address relation
           assignedRun: true,
         },
         orderBy: { scheduledDate: 'asc' },
@@ -164,6 +300,7 @@ export class OrdersService {
 
   /**
    * Update order
+   * FIXED: Uses correct field names (deliveryWindowStart/End)
    */
   async updateOrder(id: string, input: UpdateOrderInput): Promise<Order> {
     const order = await prisma.order.update({
@@ -171,6 +308,7 @@ export class OrdersService {
       data: input,
       include: {
         customer: true,
+        deliveryAddress: true, // FIXED: Include address relation
       },
     });
 
@@ -181,6 +319,7 @@ export class OrdersService {
 
   /**
    * Delete order
+   * Note: This will cascade delete ProofOfDelivery records
    */
   async deleteOrder(id: string): Promise<void> {
     await prisma.order.delete({
@@ -192,6 +331,7 @@ export class OrdersService {
 
   /**
    * Get unassigned orders ready for routing
+   * FIXED: Uses correct enum values and includes deliveryAddress
    */
   async getUnassignedOrders(scheduledDate: Date): Promise<Order[]> {
     const startOfDay = new Date(scheduledDate);
@@ -202,9 +342,17 @@ export class OrdersService {
 
     return prisma.order.findMany({
       where: {
-        status: OrderStatus.PENDING,
+        status: OrderStatus.pending, // FIXED: lowercase enum
         assignedRunId: null,
-        geocoded: true, // Only geocoded orders can be routed
+        // Only orders with geocoded addresses can be routed
+        // FIXED: Use 'is' for to-one relation filter
+        deliveryAddress: {
+          is: {
+            geocodedAt: {
+              not: null,
+            },
+          },
+        },
         scheduledDate: {
           gte: startOfDay,
           lte: endOfDay,
@@ -212,24 +360,27 @@ export class OrdersService {
       },
       include: {
         customer: true,
+        deliveryAddress: true, // FIXED: Include address for routing
       },
       orderBy: {
-        timeWindowStart: 'asc',
+        deliveryWindowStart: 'asc', // FIXED: renamed from timeWindowStart
       },
     });
   }
 
   /**
    * Submit proof of delivery for an order
+   * FIXED: Creates ProofOfDelivery record instead of updating Order directly
+   *
+   * @param id - Order ID
+   * @param data - Proof of delivery data
+   * @param userContext - User context for authorization
+   * @returns Promise resolving to updated order
+   * @throws {AppError} If authorization fails or order not found
    */
   async submitProofOfDelivery(
     id: string,
-    data: {
-      signatureUrl?: string;
-      photoUrls?: string[];
-      deliveryNotes?: string;
-      recipientName?: string;
-    },
+    data: ProofOfDeliveryInput,
     userContext: { id: string; role: string }
   ): Promise<Order> {
     // Single fetch with run and driver for authorization
@@ -248,32 +399,60 @@ export class OrdersService {
       throw new AppError(404, 'Order not found');
     }
 
+    // Get driver ID for POD record
+    let driverId: string;
+
     // Authorization check for DRIVER role
     if (userContext.role === 'DRIVER') {
       if (!order.assignedRun || !order.assignedRun.driver || order.assignedRun.driver.userId !== userContext.id) {
         throw new AppError(403, 'Drivers can only submit POD for orders in their assigned runs');
       }
+      driverId = order.assignedRun.driver.id;
+    } else {
+      // Admin/Dispatcher - need to get driver from run
+      if (!order.assignedRun || !order.assignedRun.driverId) {
+        throw new AppError(400, 'Order must be assigned to a driver to submit POD');
+      }
+      driverId = order.assignedRun.driverId;
     }
 
-    // Update order with POD data
-    const updatedOrder = await prisma.order.update({
-      where: { id },
-      data: {
-        status: OrderStatus.DELIVERED,
-        deliveredAt: new Date(),
-        signatureUrl: data.signatureUrl,
-        photoUrls: data.photoUrls as unknown as Prisma.InputJsonValue,
-        deliveryNotes: data.deliveryNotes,
-      },
-      include: {
-        customer: true,
-      },
+    // Use transaction to update order and create POD record
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      // 1. Create ProofOfDelivery record
+      await tx.proofOfDelivery.create({
+        data: {
+          orderId: id,
+          runId: order.assignedRunId,
+          driverId,
+          recipientName: data.recipientName,
+          recipientRelationship: data.recipientRelationship,
+          signatureUrl: data.signatureUrl,
+          photos: data.photos || [],
+          notes: data.notes,
+          deliveredAt: new Date(),
+        },
+      });
+
+      // 2. Update order status
+      return tx.order.update({
+        where: { id },
+        data: {
+          status: OrderStatus.delivered, // FIXED: lowercase enum
+          actualDeliveryTime: new Date(), // FIXED: use actualDeliveryTime not deliveredAt
+        },
+        include: {
+          customer: true,
+          deliveryAddress: true, // FIXED: Include address
+          proofOfDelivery: true,
+        },
+      });
     });
 
     logger.info('Proof of delivery submitted', {
       orderId: id,
+      driverId,
       hasSignature: !!data.signatureUrl,
-      photoCount: data.photoUrls?.length || 0,
+      photoCount: data.photos?.length || 0,
     });
 
     return updatedOrder;
@@ -281,6 +460,7 @@ export class OrdersService {
 
   /**
    * Mark order as delivered (without proof)
+   * FIXED: Uses actualDeliveryTime field
    */
   async markAsDelivered(id: string, userContext: { id: string; role: string }): Promise<Order> {
     // Single fetch with run and driver for authorization
@@ -310,11 +490,12 @@ export class OrdersService {
     const updatedOrder = await prisma.order.update({
       where: { id },
       data: {
-        status: OrderStatus.DELIVERED,
-        deliveredAt: new Date(),
+        status: OrderStatus.delivered, // FIXED: lowercase enum
+        actualDeliveryTime: new Date(), // FIXED: use actualDeliveryTime
       },
       include: {
         customer: true,
+        deliveryAddress: true, // FIXED: Include address
       },
     });
 
@@ -325,8 +506,13 @@ export class OrdersService {
 
   /**
    * Mark order as failed with reason
+   * FIXED: Uses lowercase enum values
    */
-  async markAsFailed(id: string, failureReason: string | undefined, userContext: { id: string; role: string }): Promise<Order> {
+  async markAsFailed(
+    id: string,
+    failureReason: string | undefined,
+    userContext: { id: string; role: string }
+  ): Promise<Order> {
     // Single fetch with run and driver for authorization
     const order = await prisma.order.findUnique({
       where: { id },
@@ -354,11 +540,12 @@ export class OrdersService {
     const updatedOrder = await prisma.order.update({
       where: { id },
       data: {
-        status: OrderStatus.FAILED,
-        deliveryNotes: failureReason,
+        status: OrderStatus.failed, // FIXED: lowercase enum
+        failureReason, // FIXED: schema has failureReason field
       },
       include: {
         customer: true,
+        deliveryAddress: true, // FIXED: Include address
       },
     });
 
