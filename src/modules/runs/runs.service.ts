@@ -451,7 +451,7 @@ export class RunsService {
           location: [result[0].lon, result[0].lat] as [number, number],
           serviceDuration,
           weightKg: order.weightKg ? Number(order.weightKg) : 0,
-          packageCount: order.packageCount || 1,
+          packageCount: order.packageCount ?? 0,
           ...(order.timeWindowStart &&
             order.timeWindowEnd && {
               timeWindow: [
