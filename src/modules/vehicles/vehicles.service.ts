@@ -11,11 +11,9 @@ interface CreateVehicleInput {
   make: string;
   model: string;
   year: number;
-  type: VehicleType;
-  maxWeight?: number;
-  maxVolume?: number;
-  maxStops?: number;
-  traccarDeviceId?: string;
+  type?: VehicleType;
+  capacityKg?: number;
+  capacityCubicM?: number;
 }
 
 interface UpdateVehicleInput {
@@ -23,11 +21,9 @@ interface UpdateVehicleInput {
   model?: string;
   year?: number;
   type?: VehicleType;
-  maxWeight?: number;
-  maxVolume?: number;
-  maxStops?: number;
-  traccarDeviceId?: string;
-  isActive?: boolean;
+  capacityKg?: number;
+  capacityCubicM?: number;
+  status?: 'active' | 'maintenance' | 'retired';
 }
 
 export class VehiclesService {
@@ -52,11 +48,9 @@ export class VehiclesService {
           model: input.model,
           year: input.year,
           type: input.type,
-          maxWeight: input.maxWeight,
-          maxVolume: input.maxVolume,
-          maxStops: input.maxStops,
-          traccarDeviceId: input.traccarDeviceId,
-          isActive: true,
+          capacityKg: input.capacityKg,
+          capacityCubicM: input.capacityCubicM,
+          status: 'active',
         },
       });
 
@@ -110,7 +104,7 @@ export class VehiclesService {
    */
   async listVehicles(params: {
     type?: VehicleType;
-    isActive?: boolean;
+    status?: 'active' | 'maintenance' | 'retired';
     page?: number;
     limit?: number;
   }) {
@@ -118,7 +112,7 @@ export class VehiclesService {
 
     const where: Prisma.VehicleWhereInput = {
       ...(params.type && { type: params.type }),
-      ...(params.isActive !== undefined && { isActive: params.isActive }),
+      ...(params.status && { status: params.status }),
     };
 
     const [vehicles, total] = await Promise.all([
@@ -165,7 +159,7 @@ export class VehiclesService {
       where: {
         vehicleId: id,
         status: {
-          in: ['PLANNED', 'ASSIGNED', 'IN_PROGRESS'],
+          in: ['planned', 'assigned', 'in_progress'],
         },
       },
     });
@@ -189,7 +183,7 @@ export class VehiclesService {
 
     return prisma.vehicle.findMany({
       where: {
-        isActive: true,
+        status: 'active',
         id: {
           notIn: busyVehicleIds,
         },

@@ -10,11 +10,9 @@ const createVehicleSchema = z.object({
     make: z.string().min(1),
     model: z.string().min(1),
     year: z.number().int().min(1900).max(new Date().getFullYear() + 1),
-    type: z.nativeEnum(VehicleType),
-    maxWeight: z.number().positive().optional(),
-    maxVolume: z.number().positive().optional(),
-    maxStops: z.number().int().positive().optional(),
-    traccarDeviceId: z.string().optional(),
+    type: z.nativeEnum(VehicleType).optional(),
+    capacityKg: z.number().positive().optional(),
+    capacityCubicM: z.number().positive().optional(),
   }),
 });
 
@@ -24,21 +22,16 @@ const updateVehicleSchema = z.object({
     model: z.string().min(1).optional(),
     year: z.number().int().min(1900).max(new Date().getFullYear() + 1).optional(),
     type: z.nativeEnum(VehicleType).optional(),
-    maxWeight: z.number().positive().optional(),
-    maxVolume: z.number().positive().optional(),
-    maxStops: z.number().int().positive().optional(),
-    traccarDeviceId: z.string().optional(),
-    isActive: z.boolean().optional(),
+    capacityKg: z.number().positive().optional(),
+    capacityCubicM: z.number().positive().optional(),
+    status: z.enum(['active', 'maintenance', 'retired']).optional(),
   }),
 });
 
 const listVehiclesSchema = z.object({
   query: z.object({
     type: z.nativeEnum(VehicleType).optional(),
-    isActive: z
-      .string()
-      .transform((val) => val === 'true')
-      .optional(),
+    status: z.enum(['active', 'maintenance', 'retired']).optional(),
     page: z.string().transform(Number).optional(),
     limit: z.string().transform(Number).optional(),
   }),
