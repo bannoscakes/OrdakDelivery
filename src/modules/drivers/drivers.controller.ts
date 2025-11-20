@@ -7,26 +7,30 @@ import { DriverStatus } from '@prisma/client';
 const createDriverSchema = z.object({
   body: z.object({
     email: z.string().email(),
+    password: z.string().min(8),
     firstName: z.string().min(1),
     lastName: z.string().min(1),
-    phone: z.string().min(1),
-    licenseNumber: z.string().optional(),
-    startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-    endTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-    traccarDeviceId: z.string().optional(),
+    phone: z.string().optional(),
+    driverLicense: z.string().min(1),
+    licenseExpiry: z.string().refine((val) => !isNaN(Date.parse(val)), {
+      message: 'Invalid date format',
+    }).transform((val) => new Date(val)),
+    vehicleId: z.string().uuid().optional(),
+    emergencyContactName: z.string().optional(),
+    emergencyContactPhone: z.string().optional(),
   }),
 });
 
 const updateDriverSchema = z.object({
   body: z.object({
-    firstName: z.string().min(1).optional(),
-    lastName: z.string().min(1).optional(),
-    phone: z.string().min(1).optional(),
-    licenseNumber: z.string().optional(),
+    driverLicense: z.string().min(1).optional(),
+    licenseExpiry: z.string().refine((val) => !isNaN(Date.parse(val)), {
+      message: 'Invalid date format',
+    }).transform((val) => new Date(val)).optional(),
+    vehicleId: z.string().uuid().optional(),
     status: z.nativeEnum(DriverStatus).optional(),
-    startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-    endTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-    traccarDeviceId: z.string().optional(),
+    emergencyContactName: z.string().optional(),
+    emergencyContactPhone: z.string().optional(),
   }),
 });
 
