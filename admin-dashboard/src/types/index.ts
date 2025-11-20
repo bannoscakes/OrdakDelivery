@@ -104,12 +104,10 @@ export interface Vehicle {
   make: string;
   model: string;
   year: number;
-  type: VehicleType;
-  maxWeight?: number;
-  maxVolume?: number;
-  maxStops?: number;
-  traccarDeviceId?: string;
-  isActive: boolean;
+  type?: VehicleType;
+  capacityKg?: number;
+  capacityCubicM?: number;
+  status: 'active' | 'maintenance' | 'retired';
   createdAt: string;
   updatedAt: string;
 }
@@ -203,11 +201,9 @@ export interface CreateVehicleInput {
   make: string;
   model: string;
   year: number;
-  type: VehicleType;
-  maxWeight?: number;
-  maxVolume?: number;
-  maxStops?: number;
-  traccarDeviceId?: string;
+  type?: VehicleType;
+  capacityKg?: number;
+  capacityCubicM?: number;
 }
 
 export interface UpdateVehicleInput {
@@ -215,11 +211,9 @@ export interface UpdateVehicleInput {
   model?: string;
   year?: number;
   type?: VehicleType;
-  maxWeight?: number;
-  maxVolume?: number;
-  maxStops?: number;
-  traccarDeviceId?: string;
-  isActive?: boolean;
+  capacityKg?: number;
+  capacityCubicM?: number;
+  status?: 'active' | 'maintenance' | 'retired';
 }
 
 export interface CreateDeliveryRunInput {

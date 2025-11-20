@@ -1,4 +1,4 @@
-import { PrismaClient, OrderType, OrderStatus, DriverStatus, VehicleType } from '@prisma/client';
+import { PrismaClient, OrderType, OrderStatus, DriverStatus, VehicleType, VehicleStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -89,7 +89,7 @@ async function main() {
       type: VehicleType.van,
       capacityKg: 1000,
       capacityCubicM: 15,
-      status: 'active',
+      status: VehicleStatus.active,
     },
   });
 
@@ -104,7 +104,7 @@ async function main() {
       type: VehicleType.van,
       capacityKg: 800,
       capacityCubicM: 12,
-      status: 'active',
+      status: VehicleStatus.active,
     },
   });
 

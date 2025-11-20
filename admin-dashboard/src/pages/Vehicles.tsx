@@ -43,11 +43,11 @@ export function Vehicles() {
                   style={{
                     padding: '4px 12px',
                     borderRadius: '12px',
-                    background: vehicle.isActive ? '#d4edda' : '#f8d7da',
+                    background: vehicle.status === 'active' ? '#d4edda' : vehicle.status === 'maintenance' ? '#fff3cd' : '#f8d7da',
                     fontSize: '12px',
                   }}
                 >
-                  {vehicle.isActive ? 'ACTIVE' : 'INACTIVE'}
+                  {vehicle.status.toUpperCase()}
                 </span>
               </div>
             ))}
