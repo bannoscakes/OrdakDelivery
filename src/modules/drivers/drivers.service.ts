@@ -29,6 +29,20 @@ interface UpdateDriverInput {
   emergencyContactPhone?: string;
 }
 
+// Safe user fields to expose in API responses (excludes sensitive data)
+const safeUserSelect = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+  role: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  // Excluded: passwordHash, emailVerified, lastLoginAt
+} as const;
+
 export class DriversService {
   /**
    * Create a new driver
@@ -87,7 +101,9 @@ export class DriversService {
             emergencyContactPhone: input.emergencyContactPhone,
           },
           include: {
-            user: true,
+            user: {
+              select: safeUserSelect,
+            },
             vehicle: true,
           },
         });
@@ -114,7 +130,9 @@ export class DriversService {
     const driver = await prisma.driver.findUnique({
       where: { id },
       include: {
-        user: true,
+        user: {
+          select: safeUserSelect,
+        },
         vehicle: true,
         ...(includeRuns && {
           deliveryRuns: {
@@ -154,7 +172,9 @@ export class DriversService {
       prisma.driver.findMany({
         where,
         include: {
-          user: true,
+          user: {
+            select: safeUserSelect,
+          },
           vehicle: true,
         },
         orderBy: {
@@ -250,7 +270,9 @@ export class DriversService {
         },
       },
       include: {
-        user: true,
+        user: {
+          select: safeUserSelect,
+        },
         vehicle: true,
       },
       orderBy: {
