@@ -740,6 +740,265 @@ export class RunsService {
     const sequence = (count + 1).toString().padStart(3, '0');
     return `${prefix}-${sequence}`;
   }
+
+  // =====================================================
+  // DRAFT MODE OPERATIONS
+  // =====================================================
+
+  /**
+   * Add a single order to a draft run
+   * Validates capacity if vehicle is assigned
+   *
+   * @param runId - Run ID
+   * @param orderId - Order ID to add
+   * @returns Updated run
+   */
+  async addOrderToRun(runId: string, orderId: string): Promise<DeliveryRun> {
+    logger.info('Adding order to run', { runId, orderId });
+
+    try {
+      const run = await prisma.deliveryRun.findUnique({
+        where: { id: runId },
+      });
+
+      if (!run) {
+        throw new AppError(404, 'Delivery run not found');
+      }
+
+      if (!run.isDraft) {
+        throw new AppError(400, `Run ${run.runNumber} is finalized and cannot be modified`);
+      }
+
+      // Use existing assignOrders method (includes capacity validation)
+      await this.assignOrders(runId, [orderId]);
+
+      const updatedRun = await this.getRunById(runId);
+
+      logger.info('Order added to run successfully', { runId, orderId });
+
+      return updatedRun;
+    } catch (error) {
+      logger.error('Failed to add order to run', { runId, orderId, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Remove a single order from a draft run
+   *
+   * @param runId - Run ID
+   * @param orderId - Order ID to remove
+   * @returns Updated run
+   */
+  async removeOrderFromRun(runId: string, orderId: string): Promise<DeliveryRun> {
+    logger.info('Removing order from run', { runId, orderId });
+
+    try {
+      const run = await prisma.deliveryRun.findUnique({
+        where: { id: runId },
+      });
+
+      if (!run) {
+        throw new AppError(404, 'Delivery run not found');
+      }
+
+      if (!run.isDraft) {
+        throw new AppError(400, `Run ${run.runNumber} is finalized and cannot be modified`);
+      }
+
+      // Use existing unassignOrders method
+      await this.unassignOrders(runId, [orderId]);
+
+      const updatedRun = await this.getRunById(runId);
+
+      logger.info('Order removed from run successfully', { runId, orderId });
+
+      return updatedRun;
+    } catch (error) {
+      logger.error('Failed to remove order from run', { runId, orderId, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Reorder stops within a draft run
+   *
+   * @param runId - Run ID
+   * @param orderSequence - Array of order IDs in desired sequence
+   * @returns Updated run
+   */
+  async reorderStops(runId: string, orderSequence: string[]): Promise<DeliveryRun> {
+    logger.info('Reordering stops in run', { runId, stopCount: orderSequence.length });
+
+    try {
+      const run = await prisma.deliveryRun.findUnique({
+        where: { id: runId },
+        include: {
+          orders: true,
+        },
+      });
+
+      if (!run) {
+        throw new AppError(404, 'Delivery run not found');
+      }
+
+      if (!run.isDraft) {
+        throw new AppError(400, `Run ${run.runNumber} is finalized and cannot be modified`);
+      }
+
+      // Verify all order IDs belong to this run
+      const runOrderIds = new Set(run.orders.map((o) => o.id));
+      const invalidOrderIds = orderSequence.filter((id) => !runOrderIds.has(id));
+
+      if (invalidOrderIds.length > 0) {
+        throw new AppError(
+          400,
+          `Orders not found in run: ${invalidOrderIds.join(', ')}`
+        );
+      }
+
+      if (orderSequence.length !== run.orders.length) {
+        throw new AppError(
+          400,
+          `Order sequence must include all orders in run (expected ${run.orders.length}, got ${orderSequence.length})`
+        );
+      }
+
+      // Update sequence for each order
+      await prisma.$transaction(
+        orderSequence.map((orderId, index) =>
+          prisma.order.update({
+            where: { id: orderId },
+            data: { sequenceInRun: index + 1 },
+          })
+        )
+      );
+
+      const updatedRun = await this.getRunById(runId);
+
+      logger.info('Stops reordered successfully', { runId });
+
+      return updatedRun;
+    } catch (error) {
+      logger.error('Failed to reorder stops', { runId, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Move an order from one run to another (both must be draft)
+   *
+   * @param orderId - Order ID to move
+   * @param fromRunId - Source run ID
+   * @param toRunId - Destination run ID
+   * @returns Updated destination run
+   */
+  async moveOrderBetweenRuns(
+    orderId: string,
+    fromRunId: string,
+    toRunId: string
+  ): Promise<DeliveryRun> {
+    logger.info('Moving order between runs', { orderId, fromRunId, toRunId });
+
+    try {
+      // Verify both runs exist and are in draft mode
+      const [fromRun, toRun] = await Promise.all([
+        prisma.deliveryRun.findUnique({
+          where: { id: fromRunId },
+        }),
+        prisma.deliveryRun.findUnique({
+          where: { id: toRunId },
+        }),
+      ]);
+
+      if (!fromRun) {
+        throw new AppError(404, `Source run ${fromRunId} not found`);
+      }
+
+      if (!toRun) {
+        throw new AppError(404, `Destination run ${toRunId} not found`);
+      }
+
+      if (!fromRun.isDraft) {
+        throw new AppError(400, `Source run ${fromRun.runNumber} is finalized`);
+      }
+
+      if (!toRun.isDraft) {
+        throw new AppError(400, `Destination run ${toRun.runNumber} is finalized`);
+      }
+
+      // Verify order belongs to source run
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+      });
+
+      if (!order) {
+        throw new AppError(404, `Order ${orderId} not found`);
+      }
+
+      if (order.assignedRunId !== fromRunId) {
+        throw new AppError(400, `Order ${order.orderNumber} is not in source run`);
+      }
+
+      // Check capacity in destination run (if vehicle assigned)
+      if (toRun.vehicleId) {
+        const capacityCheck = await this.checkCapacityForOrders(toRunId, [orderId]);
+        if (!capacityCheck.valid) {
+          throw new AppError(400, capacityCheck.error || 'Order exceeds vehicle capacity');
+        }
+      }
+
+      // Move order in transaction
+      await prisma.$transaction(async (tx) => {
+        // Remove from source run
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            assignedRunId: null,
+            sequenceInRun: null,
+          },
+        });
+
+        // Update source run stats
+        const sourceOrderCount = await tx.order.count({
+          where: { assignedRunId: fromRunId },
+        });
+
+        await tx.deliveryRun.update({
+          where: { id: fromRunId },
+          data: { totalOrders: sourceOrderCount },
+        });
+
+        // Add to destination run
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            assignedRunId: toRunId,
+            status: 'assigned',
+          },
+        });
+
+        // Update destination run stats
+        const destOrderCount = await tx.order.count({
+          where: { assignedRunId: toRunId },
+        });
+
+        await tx.deliveryRun.update({
+          where: { id: toRunId },
+          data: { totalOrders: destOrderCount },
+        });
+      });
+
+      const updatedRun = await this.getRunById(toRunId);
+
+      logger.info('Order moved between runs successfully', { orderId, fromRunId, toRunId });
+
+      return updatedRun;
+    } catch (error) {
+      logger.error('Failed to move order between runs', { orderId, fromRunId, toRunId, error });
+      throw error;
+    }
+  }
 }
 
 export default new RunsService();
