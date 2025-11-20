@@ -84,6 +84,7 @@ export class MapboxOptimizationService {
 
   /**
    * Create optimization request from simplified input
+   * Includes vehicle capacity constraints and order service durations
    */
   buildOptimizationRequest(params: {
     vehicleStartLocation: [number, number];
@@ -94,21 +95,32 @@ export class MapboxOptimizationService {
       serviceDuration?: number; // seconds
       timeWindow?: [number, number]; // Unix timestamps
       priority?: number;
+      weightKg?: number; // order weight in kg
+      packageCount?: number; // number of packages
     }>;
-    vehicleCapacity?: number[];
+    vehicleCapacityKg?: number; // vehicle capacity in kg
   }): OptimizationRequest {
+    // Build vehicle with capacity constraints
     const vehicle: OptimizationVehicle = {
       vehicle_id: 'vehicle_1',
       start_location: params.vehicleStartLocation,
       ...(params.vehicleEndLocation && { end_location: params.vehicleEndLocation }),
-      ...(params.vehicleCapacity && { capacity: params.vehicleCapacity }),
+      // Mapbox uses capacity as array [dimension1, dimension2, ...]
+      // We use single dimension for weight in kg
+      ...(params.vehicleCapacityKg && { capacity: [params.vehicleCapacityKg] }),
     };
 
+    // Build services with delivery sizes (for capacity constraints)
     const services: OptimizationService[] = params.stops.map((stop) => ({
       id: stop.id,
       location: stop.location,
-      ...(stop.serviceDuration && { service_duration: stop.serviceDuration }),
+      // Service duration - time spent at each stop
+      service_duration: stop.serviceDuration || 300, // default 5 minutes
+      // Delivery size - capacity consumed by this order
+      ...(stop.weightKg && { delivery: [stop.weightKg] }),
+      // Time windows if specified
       ...(stop.timeWindow && { time_windows: [stop.timeWindow] }),
+      // Priority if specified
       ...(stop.priority && { priority: stop.priority }),
     }));
 
