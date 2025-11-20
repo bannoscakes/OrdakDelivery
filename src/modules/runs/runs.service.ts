@@ -30,15 +30,18 @@ export class RunsService {
   /**
    * Create a new delivery run
    * Validates vehicle capacity if orders are assigned during creation
+   * Uses atomic operation: if order assignment fails, run creation is rolled back
    * @param input - Run creation data including name, scheduled date, driver, and vehicle
    * @returns Promise resolving to the created delivery run
    * @throws {AppError} If run creation fails or capacity constraints are exceeded
    */
   async createRun(input: CreateRunInput): Promise<DeliveryRun> {
-    try {
-      // Generate unique run number
-      const runNumber = await this.generateRunNumber(input.scheduledDate);
+    // Generate unique run number outside transaction (idempotent operation)
+    const runNumber = await this.generateRunNumber(input.scheduledDate);
 
+    let createdRunId: string | null = null;
+
+    try {
       const run = await prisma.deliveryRun.create({
         data: {
           runNumber,
@@ -55,7 +58,10 @@ export class RunsService {
         },
       });
 
+      createdRunId = run.id;
+
       // Assign orders if provided (includes capacity validation)
+      // If this fails, we need to clean up the created run
       if (input.orderIds && input.orderIds.length > 0) {
         await this.assignOrders(run.id, input.orderIds);
       }
@@ -64,7 +70,28 @@ export class RunsService {
 
       return run;
     } catch (error) {
-      logger.error('Failed to create delivery run', { input, error });
+      // If run was created but assignment failed, clean it up
+      if (createdRunId) {
+        try {
+          await prisma.deliveryRun.delete({ where: { id: createdRunId } });
+          logger.warn('Rolled back run creation due to assignment failure', {
+            runId: createdRunId,
+            runNumber,
+          });
+        } catch (deleteError) {
+          logger.error('Failed to rollback run creation', {
+            runId: createdRunId,
+            deleteError,
+          });
+        }
+      }
+
+      logger.error('Failed to create delivery run', {
+        runNumber,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Propagate the original error
       if (error instanceof AppError) {
         throw error;
       }
@@ -397,17 +424,30 @@ export class RunsService {
         },
       });
 
-      // Update run statistics
-      const orderCount = orderIds.length;
+      // Recalculate total orders from database (not just the batch size)
+      const totalOrders = await tx.order.count({
+        where: { assignedRunId: runId },
+      });
+
+      // Update run statistics with actual count
       await tx.deliveryRun.update({
         where: { id: runId },
         data: {
-          totalOrders: orderCount,
+          totalOrders,
         },
       });
     });
 
-    logger.info('Orders assigned to run', { runId, orderCount: orderIds.length });
+    // Get final count for logging
+    const finalCount = await prisma.order.count({
+      where: { assignedRunId: runId },
+    });
+
+    logger.info('Orders assigned to run', {
+      runId,
+      batchSize: orderIds.length,
+      totalOrders: finalCount,
+    });
   }
 
   /**
