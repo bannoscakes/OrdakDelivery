@@ -5,7 +5,7 @@ import { DeliveryRun, DeliveryRunStatus, Prisma } from '@prisma/client';
 import { optimizationService } from '@/services/mapbox';
 import type { OptimizationSolution } from '@/services/mapbox';
 import { normalizePagination } from '@/utils/pagination';
-import { DEFAULT_SERVICE_DURATION_SECONDS } from '@/constants/time';
+import { getServiceDuration } from '@/constants/time';
 
 interface CreateRunInput {
   name: string;
@@ -29,9 +29,10 @@ interface UpdateRunInput {
 export class RunsService {
   /**
    * Create a new delivery run
+   * Validates vehicle capacity if orders are assigned during creation
    * @param input - Run creation data including name, scheduled date, driver, and vehicle
    * @returns Promise resolving to the created delivery run
-   * @throws {AppError} If run creation fails
+   * @throws {AppError} If run creation fails or capacity constraints are exceeded
    */
   async createRun(input: CreateRunInput): Promise<DeliveryRun> {
     try {
@@ -54,7 +55,7 @@ export class RunsService {
         },
       });
 
-      // Assign orders if provided
+      // Assign orders if provided (includes capacity validation)
       if (input.orderIds && input.orderIds.length > 0) {
         await this.assignOrders(run.id, input.orderIds);
       }
@@ -64,6 +65,9 @@ export class RunsService {
       return run;
     } catch (error) {
       logger.error('Failed to create delivery run', { input, error });
+      if (error instanceof AppError) {
+        throw error;
+      }
       throw new AppError(500, 'Failed to create delivery run');
     }
   }
@@ -191,10 +195,176 @@ export class RunsService {
   }
 
   /**
+   * Validate run capacity constraints
+   * Checks if all orders in the run fit within the assigned vehicle's capacity
+   *
+   * @param runId - ID of the run to validate
+   * @returns Promise resolving to true if capacity is valid, false otherwise
+   * @throws {AppError} If run or vehicle not found
+   */
+  async validateRunCapacity(runId: string): Promise<boolean> {
+    const run = await prisma.deliveryRun.findUnique({
+      where: { id: runId },
+      include: {
+        vehicle: true,
+        orders: {
+          select: {
+            id: true,
+            orderNumber: true,
+            weightKg: true,
+            packageCount: true,
+          },
+        },
+      },
+    });
+
+    if (!run) {
+      throw new AppError(404, 'Delivery run not found');
+    }
+
+    if (!run.vehicleId || !run.vehicle) {
+      throw new AppError(400, 'Run has no assigned vehicle');
+    }
+
+    const capacity = this.calculateRunCapacity(run.orders);
+    const vehicleCapacityKg = run.vehicle.capacityKg?.toNumber() || Infinity;
+    const vehicleCapacityCubicM = run.vehicle.capacityCubicM?.toNumber() || Infinity;
+
+    // Check weight capacity
+    if (capacity.totalWeightKg > vehicleCapacityKg) {
+      logger.warn('Run exceeds vehicle weight capacity', {
+        runId,
+        totalWeight: capacity.totalWeightKg,
+        vehicleCapacity: vehicleCapacityKg,
+      });
+      return false;
+    }
+
+    // Check package count (simple capacity check - could be enhanced with volume)
+    // Using package count as a proxy for cubic capacity
+    const estimatedCubicM = capacity.totalPackages * 0.1; // Assume 0.1 cubic meters per package
+    if (estimatedCubicM > vehicleCapacityCubicM) {
+      logger.warn('Run exceeds vehicle cubic capacity', {
+        runId,
+        estimatedCubicM,
+        vehicleCapacity: vehicleCapacityCubicM,
+      });
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Calculate total capacity requirements for a set of orders
+   * @private
+   */
+  private calculateRunCapacity(orders: Array<{ weightKg: any; packageCount: number }>) {
+    const totalWeightKg = orders.reduce((sum, order) => {
+      const weight = order.weightKg ? Number(order.weightKg) : 0;
+      return sum + weight;
+    }, 0);
+
+    const totalPackages = orders.reduce((sum, order) => sum + order.packageCount, 0);
+
+    return { totalWeightKg, totalPackages };
+  }
+
+  /**
+   * Check if adding specific orders would exceed vehicle capacity
+   * @private
+   */
+  private async checkCapacityForOrders(
+    runId: string,
+    orderIds: string[]
+  ): Promise<{ valid: boolean; error?: string }> {
+    // Get run with vehicle
+    const run = await prisma.deliveryRun.findUnique({
+      where: { id: runId },
+      include: {
+        vehicle: true,
+        orders: {
+          select: {
+            weightKg: true,
+            packageCount: true,
+          },
+        },
+      },
+    });
+
+    if (!run) {
+      throw new AppError(404, 'Delivery run not found');
+    }
+
+    if (!run.vehicleId || !run.vehicle) {
+      throw new AppError(400, 'Run has no assigned vehicle');
+    }
+
+    // Get orders to be added
+    const newOrders = await prisma.order.findMany({
+      where: { id: { in: orderIds } },
+      select: {
+        id: true,
+        orderNumber: true,
+        weightKg: true,
+        packageCount: true,
+      },
+    });
+
+    // Calculate combined capacity
+    const existingCapacity = this.calculateRunCapacity(run.orders);
+    const newCapacity = this.calculateRunCapacity(newOrders);
+
+    const totalWeightKg = existingCapacity.totalWeightKg + newCapacity.totalWeightKg;
+    const totalPackages = existingCapacity.totalPackages + newCapacity.totalPackages;
+
+    const vehicleCapacityKg = run.vehicle.capacityKg?.toNumber() || Infinity;
+    const vehicleCapacityCubicM = run.vehicle.capacityCubicM?.toNumber() || Infinity;
+
+    // Check weight capacity
+    if (totalWeightKg > vehicleCapacityKg) {
+      return {
+        valid: false,
+        error: `Orders exceed vehicle weight capacity (${totalWeightKg.toFixed(2)} kg / ${vehicleCapacityKg.toFixed(2)} kg)`,
+      };
+    }
+
+    // Check package/volume capacity
+    const estimatedCubicM = totalPackages * 0.1; // Assume 0.1 cubic meters per package
+    if (estimatedCubicM > vehicleCapacityCubicM) {
+      return {
+        valid: false,
+        error: `Orders exceed vehicle capacity (${totalPackages} packages / ~${estimatedCubicM.toFixed(2)} m³)`,
+      };
+    }
+
+    return { valid: true };
+  }
+
+  /**
    * Assign orders to a run
+   * Validates vehicle capacity before assignment
    * Uses transaction to ensure data consistency
+   * @throws {AppError} If capacity constraints are exceeded
    */
   async assignOrders(runId: string, orderIds: string[]): Promise<void> {
+    // Check capacity before assigning (only if vehicle is assigned to run)
+    const run = await prisma.deliveryRun.findUnique({
+      where: { id: runId },
+      select: { vehicleId: true },
+    });
+
+    if (!run) {
+      throw new AppError(404, 'Delivery run not found');
+    }
+
+    if (run.vehicleId) {
+      const capacityCheck = await this.checkCapacityForOrders(runId, orderIds);
+      if (!capacityCheck.valid) {
+        throw new AppError(400, capacityCheck.error || 'Orders exceed vehicle capacity');
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       // Update orders to assign them to the run
       await tx.order.updateMany({
@@ -253,6 +423,7 @@ export class RunsService {
 
   /**
    * Extract order locations from PostGIS for optimization
+   * Includes service duration based on order type
    * @private
    */
   private async extractOrderLocations(orders: any[]) {
@@ -269,10 +440,15 @@ export class RunsService {
           throw new AppError(400, `Order ${order.orderNumber} is not geocoded`);
         }
 
+        // Get service duration based on order type
+        const serviceDuration = getServiceDuration(order.type);
+
         return {
           id: order.id,
           location: [result[0].lon, result[0].lat] as [number, number],
-          serviceDuration: DEFAULT_SERVICE_DURATION_SECONDS,
+          serviceDuration,
+          weightKg: order.weightKg ? Number(order.weightKg) : 0,
+          packageCount: order.packageCount || 1,
           ...(order.timeWindowStart &&
             order.timeWindowEnd && {
               timeWindow: [
@@ -288,6 +464,7 @@ export class RunsService {
   /**
    * Optimize run using Mapbox Optimization API
    * Calculates optimal route for all orders in the run
+   * Includes vehicle capacity constraints and service durations
    * @param runId - ID of the run to optimize
    * @param startLocation - Starting coordinates [longitude, latitude]
    * @param endLocation - Optional ending coordinates [longitude, latitude]
@@ -302,17 +479,28 @@ export class RunsService {
         throw new AppError(400, 'Cannot optimize run with no orders');
       }
 
-      // Extract order locations from PostGIS
+      // Extract order locations from PostGIS (includes weights and service durations)
       const stops = await this.extractOrderLocations(run.orders);
 
-      // Build and execute optimization request
+      // Get vehicle capacity for optimization constraints
+      let vehicleCapacityKg: number | undefined;
+      if (run.vehicle?.capacityKg) {
+        vehicleCapacityKg = Number(run.vehicle.capacityKg);
+      }
+
+      // Build and execute optimization request with capacity constraints
       const optimizationRequest = optimizationService.buildOptimizationRequest({
         vehicleStartLocation: startLocation,
         vehicleEndLocation: endLocation,
         stops,
+        vehicleCapacityKg,
       });
 
-      logger.info('Starting route optimization', { runId, stops: stops.length });
+      logger.info('Starting route optimization', {
+        runId,
+        stops: stops.length,
+        vehicleCapacityKg,
+      });
       const solution = await optimizationService.optimize(optimizationRequest);
 
       // Apply optimization solution to database
@@ -322,6 +510,7 @@ export class RunsService {
         runId,
         distance: solution.summary.distance,
         duration: solution.summary.duration,
+        service: solution.summary.service,
       });
 
       return solution;
