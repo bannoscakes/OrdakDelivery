@@ -62,47 +62,58 @@ async function createTestData(): Promise<TestData> {
   });
 
   // Create test addresses with geocoded locations (Toronto area)
-  const addresses = await Promise.all([
-    prisma.address.create({
+  const addressData = [
+    {
+      line1: '123 Main St',
+      city: 'Toronto',
+      stateProvince: 'ON',
+      postalCode: 'M5V 3A8',
+      latitude: 43.6532,
+      longitude: -79.3832,
+    },
+    {
+      line1: '456 Queen St',
+      city: 'Toronto',
+      stateProvince: 'ON',
+      postalCode: 'M5V 2B4',
+      latitude: 43.6485,
+      longitude: -79.3923,
+    },
+    {
+      line1: '789 King St',
+      city: 'Toronto',
+      stateProvince: 'ON',
+      postalCode: 'M5H 1H1',
+      latitude: 43.6469,
+      longitude: -79.3817,
+    },
+  ];
+
+  const addresses = [];
+  for (const data of addressData) {
+    // Create address without location field
+    const address = await prisma.address.create({
       data: {
         customerId: customer.id,
-        line1: '123 Main St',
-        city: 'Toronto',
-        stateProvince: 'ON',
-        postalCode: 'M5V 3A8',
+        line1: data.line1,
+        city: data.city,
+        stateProvince: data.stateProvince,
+        postalCode: data.postalCode,
         country: 'CA',
-        latitude: 43.6532,
-        longitude: -79.3832,
-        location: Prisma.sql`ST_GeomFromText('POINT(-79.3832 43.6532)', 4326)`,
+        latitude: data.latitude,
+        longitude: data.longitude,
       },
-    }),
-    prisma.address.create({
-      data: {
-        customerId: customer.id,
-        line1: '456 Queen St',
-        city: 'Toronto',
-        stateProvince: 'ON',
-        postalCode: 'M5V 2B4',
-        country: 'CA',
-        latitude: 43.6485,
-        longitude: -79.3923,
-        location: Prisma.sql`ST_GeomFromText('POINT(-79.3923 43.6485)', 4326)`,
-      },
-    }),
-    prisma.address.create({
-      data: {
-        customerId: customer.id,
-        line1: '789 King St',
-        city: 'Toronto',
-        stateProvince: 'ON',
-        postalCode: 'M5H 1H1',
-        country: 'CA',
-        latitude: 43.6469,
-        longitude: -79.3817,
-        location: Prisma.sql`ST_GeomFromText('POINT(-79.3817 43.6469)', 4326)`,
-      },
-    }),
-  ]);
+    });
+
+    // Update location using raw SQL (Unsupported fields can't be set in create)
+    await prisma.$executeRaw`
+      UPDATE addresses
+      SET location = ST_GeomFromText(${`POINT(${data.longitude} ${data.latitude})`}, 4326)
+      WHERE id = ${address.id}::uuid
+    `;
+
+    addresses.push(address);
+  }
 
   // Create test orders
   const orders = await Promise.all(
