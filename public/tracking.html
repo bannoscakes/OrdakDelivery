@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Your Delivery - OrdakDelivery</title>
+  <style>
+    /* Design System Colors */
+    :root {
+      --primary: #2E5EAA;
+      --success: #52C41A;
+      --warning: #FAAD14;
+      --error: #F5222D;
+      --text-dark: #262626;
+      --text-light: #8C8C8C;
+      --background: #FAFAFA;
+      --card-bg: #FFFFFF;
+      --border: #E8E8E8;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: var(--background);
+      color: var(--text-dark);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      margin-bottom: 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 8px 20px;
+      background: var(--success);
+      color: white;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    .status-badge.pending {
+      background: var(--warning);
+    }
+
+    .status-badge.failed {
+      background: var(--error);
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    h2 {
+      font-size: 20px;
+      margin-bottom: 16px;
+      color: var(--text-dark);
+    }
+
+    h3 {
+      font-size: 16px;
+      margin-bottom: 12px;
+      color: var(--text-dark);
+    }
+
+    .order-number {
+      font-size: 14px;
+      color: var(--text-light);
+      margin-bottom: 24px;
+    }
+
+    .delivery-window {
+      padding: 16px;
+      background: #F0F5FF;
+      border-left: 4px solid var(--primary);
+      border-radius: 4px;
+      margin-bottom: 24px;
+    }
+
+    .delivery-window p {
+      font-size: 16px;
+      color: var(--text-dark);
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .info-item {
+      padding: 12px;
+      background: var(--background);
+      border-radius: 8px;
+    }
+
+    .info-label {
+      font-size: 12px;
+      color: var(--text-light);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .info-value {
+      font-size: 16px;
+      color: var(--text-dark);
+      font-weight: 500;
+    }
+
+    .timeline {
+      margin-top: 32px;
+    }
+
+    .timeline-item {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .timeline-item:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 24px;
+      width: 2px;
+      height: calc(100% + 12px);
+      background: var(--border);
+    }
+
+    .timeline-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--success);
+      margin-top: 4px;
+      flex-shrink: 0;
+      z-index: 1;
+    }
+
+    .timeline-dot.pending {
+      background: var(--border);
+    }
+
+    .timeline-content {
+      flex: 1;
+    }
+
+    .timeline-title {
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .timeline-description {
+      color: var(--text-light);
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .timeline-time {
+      color: var(--text-light);
+      font-size: 12px;
+    }
+
+    .map-placeholder {
+      height: 300px;
+      background: var(--background);
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-light);
+      font-size: 14px;
+      margin: 24px 0;
+    }
+
+    .error-message {
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .error-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .error-title {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+
+    .error-description {
+      color: var(--text-light);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    .spinner {
+      border: 3px solid var(--border);
+      border-top: 3px solid var(--primary);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 12px;
+      }
+
+      .card {
+        padding: 16px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">🚚 OrdakDelivery</div>
+      <h1>Track Your Delivery</h1>
+    </div>
+
+    <div id="content">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>Loading tracking information...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Extract tracking number from URL path
+    const pathParts = window.location.pathname.split('/');
+    const trackingNumber = pathParts[pathParts.length - 1];
+
+    // Fetch tracking information
+    async function fetchTrackingInfo() {
+      try {
+        const response = await fetch(`/api/v1/tracking/${trackingNumber}`);
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            showError('Tracking number not found', 'Please check your tracking number and try again.');
+          } else {
+            showError('Error loading tracking information', 'Please try again later.');
+          }
+          return;
+        }
+
+        const result = await response.json();
+        displayTrackingInfo(result.data);
+      } catch (error) {
+        console.error('Error fetching tracking info:', error);
+        showError('Error loading tracking information', 'Please check your internet connection and try again.');
+      }
+    }
+
+    function displayTrackingInfo(data) {
+      const statusClass = data.status === 'delivered' ? '' :
+                         data.status === 'failed' || data.status === 'cancelled' ? 'failed' :
+                         'pending';
+
+      const html = `
+        <div class="card">
+          <div style="text-align: center;">
+            <span class="status-badge ${statusClass}">${data.customerStatus}</span>
+            <div class="order-number">Order #${data.orderNumber}</div>
+          </div>
+
+          ${data.estimatedArrival ? `
+            <div class="delivery-window">
+              <h3>📅 Estimated Delivery</h3>
+              <p>${data.estimatedArrival.displayText}</p>
+            </div>
+          ` : '<div class="delivery-window"><h3>📅 Delivery Window</h3><p>To be scheduled</p></div>'}
+
+          ${data.driver || data.vehicle ? `
+            <div class="info-grid">
+              ${data.driver ? `
+                <div class="info-item">
+                  <div class="info-label">Driver</div>
+                  <div class="info-value">${data.driver.firstName}</div>
+                </div>
+              ` : ''}
+              ${data.vehicle ? `
+                <div class="info-item">
+                  <div class="info-label">Vehicle</div>
+                  <div class="info-value">${data.vehicle.color} ${data.vehicle.make} ${data.vehicle.model}</div>
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="card">
+          <h2>📍 Delivery Address</h2>
+          <p>${data.deliveryAddress.addressLine1}</p>
+          <p>${data.deliveryAddress.city}, ${data.deliveryAddress.stateProvince} ${data.deliveryAddress.postalCode}</p>
+
+          <div class="map-placeholder">
+            📍 Map view coming soon (Phase 2)
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>📋 Delivery Timeline</h2>
+          <div class="timeline">
+            ${data.timeline.map(event => `
+              <div class="timeline-item">
+                <div class="timeline-dot ${event.completed ? '' : 'pending'}"></div>
+                <div class="timeline-content">
+                  <div class="timeline-title">${event.title}</div>
+                  <div class="timeline-description">${event.description}</div>
+                  ${event.timestamp ? `
+                    <div class="timeline-time">${new Date(event.timestamp).toLocaleString()}</div>
+                  ` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        ${data.proofOfDelivery ? `
+          <div class="card">
+            <h2>✅ Proof of Delivery</h2>
+            <div class="info-grid">
+              ${data.proofOfDelivery.recipientName ? `
+                <div class="info-item">
+                  <div class="info-label">Received By</div>
+                  <div class="info-value">${data.proofOfDelivery.recipientName}</div>
+                </div>
+              ` : ''}
+              <div class="info-item">
+                <div class="info-label">Signature</div>
+                <div class="info-value">${data.proofOfDelivery.hasSignature ? '✓ Yes' : '- No'}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Photos</div>
+                <div class="info-value">${data.proofOfDelivery.hasPhotos ? '✓ Yes' : '- No'}</div>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+      `;
+
+      document.getElementById('content').innerHTML = html;
+    }
+
+    function showError(title, description) {
+      document.getElementById('content').innerHTML = `
+        <div class="card error-message">
+          <div class="error-icon">⚠️</div>
+          <h2 class="error-title">${title}</h2>
+          <p class="error-description">${description}</p>
+        </div>
+      `;
+    }
+
+    // Load tracking info on page load
+    if (trackingNumber && trackingNumber !== 'track') {
+      fetchTrackingInfo();
+    } else {
+      showError('No tracking number provided', 'Please check your tracking URL.');
+    }
+  </script>
+</body>
+</html>

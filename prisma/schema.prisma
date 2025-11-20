@@ -264,6 +264,11 @@ model Order {
   trackingLinkSent   Boolean   @default(false) @map("tracking_link_sent")
   trackingUrl        String?   @map("tracking_url") @db.VarChar(500)
 
+  // PUBLIC TRACKING (Phase 1 - Customer Tracking Portal)
+  trackingNumber         String    @unique @default(cuid()) @map("tracking_number") @db.VarChar(50)
+  customerStatus         String?   @map("customer_status") @db.VarChar(100)
+  customerStatusUpdatedAt DateTime? @map("customer_status_updated_at") @db.Timestamptz(6)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -284,6 +289,7 @@ model Order {
   @@index([assignedRunId])
   @@index([zoneId])
   @@index([scheduledDate, zoneId])
+  @@index([trackingNumber])
   @@index([createdAt(sort: Desc)])
   @@map("orders")
 }

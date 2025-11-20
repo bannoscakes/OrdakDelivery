@@ -5,6 +5,7 @@ import { Order, OrderType, OrderStatus, Prisma, Customer, Address } from '@prism
 import type { CreateOrderInput, UpdateOrderInput, ProofOfDeliveryInput } from './orders.types';
 import { normalizePagination } from '@/utils/pagination';
 import { geocodeAddressToWKT } from '@/utils/geocoding';
+import trackingService from '@modules/tracking/tracking.service';
 
 // Type for createOrder return with included relations
 type OrderWithRelations = Order & {
@@ -165,6 +166,9 @@ export class OrdersService {
             total: input.total,
             currency: input.currency || 'USD',
             notes: input.notes,
+            // Customer tracking - Phase 1
+            customerStatus: 'Order Received',
+            customerStatusUpdatedAt: new Date(),
             // Items: Consider storing in externalMetadata or separate table
             ...(input.items
               ? {
@@ -183,12 +187,29 @@ export class OrdersService {
         return createdOrder;
       });
 
-      logger.info('Order created', {
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        deliveryAddressId: order.deliveryAddressId,
-        geocoded: geocodingSucceeded,
-      });
+      // Generate tracking URL (outside transaction for better error handling)
+      try {
+        const trackingUrl = trackingService.generateTrackingUrl(order.trackingNumber);
+        await prisma.order.update({
+          where: { id: order.id },
+          data: { trackingUrl },
+        });
+
+        logger.info('Order created with tracking', {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          trackingNumber: order.trackingNumber,
+          trackingUrl,
+          deliveryAddressId: order.deliveryAddressId,
+          geocoded: geocodingSucceeded,
+        });
+      } catch (trackingError) {
+        // Don't fail order creation if tracking URL generation fails
+        logger.warn('Failed to generate tracking URL', {
+          orderId: order.id,
+          error: trackingError instanceof Error ? trackingError.message : String(trackingError),
+        });
+      }
 
       return order;
     } catch (error) {
