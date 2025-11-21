@@ -1,42 +1,52 @@
 // API Types based on backend audit
 
-export enum OrderStatus {
-  PENDING = 'PENDING',
-  CONFIRMED = 'CONFIRMED',
-  ASSIGNED = 'ASSIGNED',
-  IN_PROGRESS = 'IN_PROGRESS',
-  DELIVERED = 'DELIVERED',
-  FAILED = 'FAILED',
-  CANCELLED = 'CANCELLED',
-}
+export const OrderStatus = {
+  PENDING: 'PENDING',
+  CONFIRMED: 'CONFIRMED',
+  ASSIGNED: 'ASSIGNED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  DELIVERED: 'DELIVERED',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED',
+} as const;
 
-export enum OrderType {
-  DELIVERY = 'DELIVERY',
-  PICKUP = 'PICKUP',
-}
+export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
 
-export enum RunStatus {
-  DRAFT = 'DRAFT',
-  PLANNED = 'PLANNED',
-  ASSIGNED = 'ASSIGNED',
-  IN_PROGRESS = 'IN_PROGRESS',
-  COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED',
-}
+export const OrderType = {
+  DELIVERY: 'DELIVERY',
+  PICKUP: 'PICKUP',
+} as const;
 
-export enum DriverStatus {
-  ACTIVE = 'ACTIVE',
-  INACTIVE = 'INACTIVE',
-  ON_LEAVE = 'ON_LEAVE',
-}
+export type OrderType = typeof OrderType[keyof typeof OrderType];
 
-export enum VehicleType {
-  CAR = 'CAR',
-  VAN = 'VAN',
-  TRUCK = 'TRUCK',
-  BIKE = 'BIKE',
-  MOTORCYCLE = 'MOTORCYCLE',
-}
+export const RunStatus = {
+  DRAFT: 'DRAFT',
+  PLANNED: 'PLANNED',
+  ASSIGNED: 'ASSIGNED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export type RunStatus = typeof RunStatus[keyof typeof RunStatus];
+
+export const DriverStatus = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+  ON_LEAVE: 'ON_LEAVE',
+} as const;
+
+export type DriverStatus = typeof DriverStatus[keyof typeof DriverStatus];
+
+export const VehicleType = {
+  CAR: 'CAR',
+  VAN: 'VAN',
+  TRUCK: 'TRUCK',
+  BIKE: 'BIKE',
+  MOTORCYCLE: 'MOTORCYCLE',
+} as const;
+
+export type VehicleType = typeof VehicleType[keyof typeof VehicleType];
 
 export interface Address {
   line1: string;

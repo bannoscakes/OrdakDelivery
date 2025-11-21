@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
+import { Truck, ArrowLeft, Calendar, User, Car, Package } from 'lucide-react';
 import { deliveryRunsApi, driversApi, vehiclesApi, ordersApi } from '../api';
 import type { CreateDeliveryRunInput } from '../types';
 import { toISODateString } from '../utils/date';
-import './CreateDeliveryRun.css';
+import { Button } from '../components/ui/Button';
+import { clsx } from 'clsx';
 
 export function CreateDeliveryRun() {
   const navigate = useNavigate();
@@ -60,113 +62,166 @@ export function CreateDeliveryRun() {
   };
 
   return (
-    <div className="create-delivery-run-page">
-      <div className="page-header">
-        <h1>Create Delivery Run</h1>
-        <button
-          type="button"
+    <div className="p-6 bg-dark-bg min-h-full">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-8">
+        <div>
+          <button
+            onClick={() => navigate('/runs')}
+            className="flex items-center gap-2 text-ordak-gray-400 hover:text-white mb-4 transition-colors"
+          >
+            <ArrowLeft size={18} />
+            Back to Delivery Runs
+          </button>
+          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+            <Truck className="text-gradient-pink-start" />
+            Create Delivery Run
+          </h1>
+        </div>
+        <Button
+          variant="secondary"
           onClick={() => !createRunMutation.isPending && navigate('/runs')}
-          className="btn btn-secondary"
           disabled={createRunMutation.isPending}
         >
           Cancel
-        </button>
+        </Button>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="run-form">
-        <div className="form-section">
-          <h2>Basic Information</h2>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Basic Information */}
+        <div className="bg-dark-card rounded-xl border border-dark-border p-6">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Calendar className="text-gradient-cyan-start" size={20} />
+            Basic Information
+          </h2>
 
-          <div className="form-group">
-            <label htmlFor="name">
-              Run Name <span className="required">*</span>
-            </label>
-            <input
-              id="name"
-              type="text"
-              {...register('name', { required: 'Run name is required' })}
-              placeholder="e.g., Downtown Morning Route"
-            />
-            {errors.name && <span className="error-message">{errors.name.message}</span>}
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-ordak-gray-400 mb-2">
+                Run Name <span className="text-gradient-pink-start">*</span>
+              </label>
+              <input
+                id="name"
+                type="text"
+                {...register('name', { required: 'Run name is required' })}
+                placeholder="e.g., Downtown Morning Route"
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-white placeholder-ordak-gray-600 focus:outline-none focus:border-gradient-pink-start"
+              />
+              {errors.name && (
+                <span className="text-ordak-red-light text-sm mt-1">{errors.name.message}</span>
+              )}
+            </div>
 
-          <div className="form-group">
-            <label htmlFor="scheduledDate">
-              Scheduled Date <span className="required">*</span>
-            </label>
-            <input
-              id="scheduledDate"
-              type="date"
-              {...register('scheduledDate', {
-                required: 'Scheduled date is required',
-                onChange: (e) => setSelectedDate(e.target.value),
-              })}
-            />
-            {errors.scheduledDate && (
-              <span className="error-message">{errors.scheduledDate.message}</span>
-            )}
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h2>Assignment</h2>
-
-          <div className="form-group">
-            <label htmlFor="driverId">Driver (optional)</label>
-            <select id="driverId" {...register('driverId')}>
-              <option value="">Select a driver</option>
-              {drivers?.map((driver) => (
-                <option key={driver.id} value={driver.id}>
-                  {driver.firstName} {driver.lastName} ({driver.email})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="vehicleId">Vehicle (optional)</label>
-            <select id="vehicleId" {...register('vehicleId')}>
-              <option value="">Select a vehicle</option>
-              {vehicles?.map((vehicle) => (
-                <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.make} {vehicle.model} - {vehicle.licensePlate} ({vehicle.type})
-                </option>
-              ))}
-            </select>
+            <div>
+              <label htmlFor="scheduledDate" className="block text-sm font-medium text-ordak-gray-400 mb-2">
+                Scheduled Date <span className="text-gradient-pink-start">*</span>
+              </label>
+              <input
+                id="scheduledDate"
+                type="date"
+                {...register('scheduledDate', {
+                  required: 'Scheduled date is required',
+                  onChange: (e) => setSelectedDate(e.target.value),
+                })}
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-gradient-pink-start"
+              />
+              {errors.scheduledDate && (
+                <span className="text-ordak-red-light text-sm mt-1">{errors.scheduledDate.message}</span>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="form-section">
-          <h2>Orders ({selectedOrderIds.length} selected)</h2>
-          <p className="section-description">
+        {/* Assignment */}
+        <div className="bg-dark-card rounded-xl border border-dark-border p-6">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <User className="text-gradient-purple-start" size={20} />
+            Assignment
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="driverId" className="block text-sm font-medium text-ordak-gray-400 mb-2">
+                Driver (optional)
+              </label>
+              <select
+                id="driverId"
+                {...register('driverId')}
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-gradient-purple-start"
+              >
+                <option value="">Select a driver</option>
+                {drivers?.map((driver) => (
+                  <option key={driver.id} value={driver.id}>
+                    {driver.firstName} {driver.lastName} ({driver.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="vehicleId" className="block text-sm font-medium text-ordak-gray-400 mb-2">
+                <Car className="inline mr-1" size={16} />
+                Vehicle (optional)
+              </label>
+              <select
+                id="vehicleId"
+                {...register('vehicleId')}
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-gradient-purple-start"
+              >
+                <option value="">Select a vehicle</option>
+                {vehicles?.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.make} {vehicle.model} - {vehicle.licensePlate} ({vehicle.type})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Orders */}
+        <div className="bg-dark-card rounded-xl border border-dark-border p-6">
+          <h2 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+            <Package className="text-gradient-green-start" size={20} />
+            Orders ({selectedOrderIds.length} selected)
+          </h2>
+          <p className="text-sm text-ordak-gray-400 mb-4">
             Select orders to include in this delivery run. You can also add orders later.
           </p>
 
           {unassignedOrders && unassignedOrders.length === 0 && (
-            <div className="info-box">No unassigned orders found for this date.</div>
+            <div className="bg-dark-bg rounded-lg p-4 text-ordak-gray-400 text-center">
+              No unassigned orders found for this date.
+            </div>
           )}
 
           {unassignedOrders && unassignedOrders.length > 0 && (
-            <div className="orders-list">
+            <div className="space-y-2 max-h-80 overflow-y-auto">
               {unassignedOrders.map((order) => (
                 <div
                   key={order.id}
-                  className={`order-item ${selectedOrderIds.includes(order.id) ? 'selected' : ''}`}
                   onClick={() => toggleOrderSelection(order.id)}
+                  className={clsx(
+                    'flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-all',
+                    selectedOrderIds.includes(order.id)
+                      ? 'bg-gradient-green-start/10 border-gradient-green-start'
+                      : 'bg-dark-bg border-dark-border hover:border-ordak-gray-600'
+                  )}
                 >
                   <input
                     type="checkbox"
                     checked={selectedOrderIds.includes(order.id)}
                     readOnly
+                    className="w-4 h-4 rounded accent-gradient-green-start"
                   />
-                  <div className="order-info">
-                    <div className="order-number">{order.orderNumber}</div>
-                    <div className="order-customer">
+                  <div className="flex-1">
+                    <p className="font-semibold text-white">{order.orderNumber}</p>
+                    <p className="text-sm text-ordak-gray-400">
                       {order.customer?.firstName ?? ''} {order.customer?.lastName ?? ''}
-                    </div>
-                    <div className="order-address">
+                    </p>
+                    <p className="text-sm text-ordak-gray-600">
                       {order.address?.line1 ?? ''}, {order.address?.city ?? ''}
-                    </div>
+                    </p>
                   </div>
                 </div>
               ))}
@@ -174,18 +229,19 @@ export function CreateDeliveryRun() {
           )}
         </div>
 
-        <div className="form-actions">
-          <button
+        {/* Form Actions */}
+        <div className="flex justify-end gap-4">
+          <Button
             type="button"
+            variant="secondary"
             onClick={() => navigate('/runs')}
-            className="btn btn-secondary"
             disabled={createRunMutation.isPending}
           >
             Cancel
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={createRunMutation.isPending}>
+          </Button>
+          <Button type="submit" variant="primary" disabled={createRunMutation.isPending}>
             {createRunMutation.isPending ? 'Creating...' : 'Create Delivery Run'}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

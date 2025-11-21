@@ -1,10 +1,31 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Truck, ArrowLeft, Calendar, User, Car, Package, Play, CheckCircle, Trash2, Plus, X } from 'lucide-react';
 import { deliveryRunsApi, ordersApi } from '../api';
-import { RunStatus } from '../types';
-import { formatDate, formatDateTime } from '../utils/date';
-import './DeliveryRunDetail.css';
+import { RunStatus, OrderStatus } from '../types';
+import { formatDate } from '../utils/date';
+import { Button } from '../components/ui/Button';
+import { clsx } from 'clsx';
+
+const statusStyles: Record<string, string> = {
+  [RunStatus.DRAFT]: 'bg-ordak-gray-600/20 text-ordak-gray-400',
+  [RunStatus.PLANNED]: 'bg-gradient-cyan-start/20 text-gradient-cyan-start',
+  [RunStatus.ASSIGNED]: 'bg-gradient-purple-start/20 text-gradient-purple-start',
+  [RunStatus.IN_PROGRESS]: 'bg-gradient-yellow-start/20 text-gradient-yellow-start',
+  [RunStatus.COMPLETED]: 'bg-gradient-green-start/20 text-gradient-green-start',
+  [RunStatus.CANCELLED]: 'bg-ordak-red-primary/20 text-ordak-red-primary',
+};
+
+const orderStatusStyles: Record<string, string> = {
+  [OrderStatus.PENDING]: 'bg-gradient-orange-start/20 text-gradient-orange-start',
+  [OrderStatus.CONFIRMED]: 'bg-gradient-cyan-start/20 text-gradient-cyan-start',
+  [OrderStatus.ASSIGNED]: 'bg-gradient-purple-start/20 text-gradient-purple-start',
+  [OrderStatus.IN_PROGRESS]: 'bg-gradient-yellow-start/20 text-gradient-yellow-start',
+  [OrderStatus.DELIVERED]: 'bg-gradient-green-start/20 text-gradient-green-start',
+  [OrderStatus.CANCELLED]: 'bg-ordak-red-primary/20 text-ordak-red-primary',
+  [OrderStatus.FAILED]: 'bg-ordak-red-primary/20 text-ordak-red-primary',
+};
 
 export function DeliveryRunDetail() {
   const { id } = useParams<{ id: string }>();
@@ -88,195 +109,247 @@ export function DeliveryRunDetail() {
     );
   };
 
-  const getStatusColor = (status: RunStatus) => {
-    const colors: Record<RunStatus, string> = {
-      [RunStatus.DRAFT]: '#6c757d',
-      [RunStatus.PLANNED]: '#0dcaf0',
-      [RunStatus.ASSIGNED]: '#0d6efd',
-      [RunStatus.IN_PROGRESS]: '#ffc107',
-      [RunStatus.COMPLETED]: '#198754',
-      [RunStatus.CANCELLED]: '#dc3545',
-    };
-    return colors[status] || '#6c757d';
-  };
+  if (isLoading) {
+    return (
+      <div className="p-6 bg-dark-bg min-h-full flex items-center justify-center">
+        <div className="text-ordak-gray-400">Loading delivery run...</div>
+      </div>
+    );
+  }
 
-  if (isLoading) return <div className="loading">Loading delivery run...</div>;
-  if (error) return <div className="error">Error loading delivery run</div>;
-  if (!run) return <div className="error">Delivery run not found</div>;
+  if (error || !run) {
+    return (
+      <div className="p-6 bg-dark-bg min-h-full">
+        <div className="bg-ordak-red-primary/20 border border-ordak-red-primary/30 rounded-xl p-4 text-ordak-red-light">
+          {error ? 'Error loading delivery run' : 'Delivery run not found'}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="delivery-run-detail-page">
-      <div className="page-header">
+    <div className="p-6 bg-dark-bg min-h-full">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-8">
         <div>
-          <Link to="/runs" className="breadcrumb">
-            ← Back to Delivery Runs
+          <Link
+            to="/runs"
+            className="flex items-center gap-2 text-ordak-gray-400 hover:text-white mb-4 transition-colors"
+          >
+            <ArrowLeft size={18} />
+            Back to Delivery Runs
           </Link>
-          <h1>{run.name}</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-bold text-white">{run.name}</h1>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusStyles[run.status]}`}>
+              {run.status.replace('_', ' ')}
+            </span>
+          </div>
         </div>
-        <div className="header-actions">
-          <button onClick={handleDelete} className="btn btn-danger" disabled={deleteRunMutation.isPending}>
-            Delete Run
-          </button>
-        </div>
+        <Button variant="danger" onClick={handleDelete} disabled={deleteRunMutation.isPending}>
+          <Trash2 size={18} className="mr-2" />
+          Delete Run
+        </Button>
       </div>
 
-      <div className="run-overview">
-        <div className="overview-card">
-          <h3>Status</h3>
-          <span className="status-badge" style={{ backgroundColor: getStatusColor(run.status) }}>
-            {run.status}
-          </span>
+      {/* Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-dark-card rounded-xl border border-dark-border p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <Calendar className="text-gradient-cyan-start" size={20} />
+            <span className="text-sm text-ordak-gray-400">Scheduled Date</span>
+          </div>
+          <p className="text-lg font-semibold text-white">{formatDate(run.scheduledDate)}</p>
         </div>
 
-        <div className="overview-card">
-          <h3>Scheduled Date</h3>
-          <p>{formatDate(run.scheduledDate)}</p>
-        </div>
-
-        <div className="overview-card">
-          <h3>Driver</h3>
-          <p>
-            {run.driver ? (
-              <>
+        <div className="bg-dark-card rounded-xl border border-dark-border p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <User className="text-gradient-purple-start" size={20} />
+            <span className="text-sm text-ordak-gray-400">Driver</span>
+          </div>
+          {run.driver ? (
+            <div>
+              <p className="text-lg font-semibold text-white">
                 {run.driver.firstName} {run.driver.lastName}
-                <br />
-                <small>{run.driver.email}</small>
-              </>
-            ) : (
-              <em>Not assigned</em>
-            )}
-          </p>
+              </p>
+              <p className="text-sm text-ordak-gray-400">{run.driver.email}</p>
+            </div>
+          ) : (
+            <p className="text-lg text-ordak-gray-600 italic">Not assigned</p>
+          )}
         </div>
 
-        <div className="overview-card">
-          <h3>Vehicle</h3>
-          <p>
-            {run.vehicle ? (
-              <>
+        <div className="bg-dark-card rounded-xl border border-dark-border p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <Car className="text-gradient-orange-start" size={20} />
+            <span className="text-sm text-ordak-gray-400">Vehicle</span>
+          </div>
+          {run.vehicle ? (
+            <div>
+              <p className="text-lg font-semibold text-white">
                 {run.vehicle.make} {run.vehicle.model}
-                <br />
-                <small>{run.vehicle.licensePlate}</small>
-              </>
-            ) : (
-              <em>Not assigned</em>
-            )}
-          </p>
+              </p>
+              <p className="text-sm text-ordak-gray-400">{run.vehicle.licensePlate}</p>
+            </div>
+          ) : (
+            <p className="text-lg text-ordak-gray-600 italic">Not assigned</p>
+          )}
         </div>
 
-        <div className="overview-card">
-          <h3>Orders</h3>
-          <p className="stat-number">{run.orders?.length || 0}</p>
+        <div className="bg-dark-card rounded-xl border border-dark-border p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <Package className="text-gradient-green-start" size={20} />
+            <span className="text-sm text-ordak-gray-400">Orders</span>
+          </div>
+          <p className="text-3xl font-bold text-white">{run.orders?.length || 0}</p>
         </div>
       </div>
 
-      <div className="run-actions-section">
-        <h2>Actions</h2>
-        <div className="action-buttons">
-          {run.status === RunStatus.DRAFT || run.status === RunStatus.PLANNED ? (
-            <button
+      {/* Actions */}
+      <div className="bg-dark-card rounded-xl border border-dark-border p-6 mb-8">
+        <h2 className="text-lg font-semibold text-white mb-4">Actions</h2>
+        <div className="flex gap-4">
+          {(run.status === RunStatus.DRAFT || run.status === RunStatus.PLANNED) && (
+            <Button
+              variant="primary"
               onClick={() => startRunMutation.mutate()}
-              className="btn btn-primary"
               disabled={startRunMutation.isPending}
             >
+              <Play size={18} className="mr-2" />
               Start Run
-            </button>
-          ) : null}
+            </Button>
+          )}
 
-          {run.status === RunStatus.IN_PROGRESS ? (
-            <button
+          {run.status === RunStatus.IN_PROGRESS && (
+            <Button
+              variant="success"
               onClick={() => completeRunMutation.mutate()}
-              className="btn btn-success"
               disabled={completeRunMutation.isPending}
             >
+              <CheckCircle size={18} className="mr-2" />
               Complete Run
-            </button>
-          ) : null}
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="orders-section">
-        <div className="section-header">
-          <h2>Orders ({run.orders?.length || 0})</h2>
-          <button onClick={() => setShowAddOrders(!showAddOrders)} className="btn btn-secondary">
-            {showAddOrders ? 'Cancel' : 'Add Orders'}
-          </button>
+      {/* Orders Section */}
+      <div className="bg-dark-card rounded-xl border border-dark-border p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Package className="text-gradient-green-start" size={20} />
+            Orders ({run.orders?.length || 0})
+          </h2>
+          <Button
+            variant="secondary"
+            onClick={() => setShowAddOrders(!showAddOrders)}
+          >
+            {showAddOrders ? (
+              <>
+                <X size={18} className="mr-2" />
+                Cancel
+              </>
+            ) : (
+              <>
+                <Plus size={18} className="mr-2" />
+                Add Orders
+              </>
+            )}
+          </Button>
         </div>
 
+        {/* Add Orders Panel */}
         {showAddOrders && (
-          <div className="add-orders-panel">
-            <h3>Add Orders to Run</h3>
+          <div className="bg-dark-bg rounded-xl border border-dark-border p-4 mb-6">
+            <h3 className="font-semibold text-white mb-4">Add Orders to Run</h3>
             {unassignedOrders && unassignedOrders.length === 0 && (
-              <p>No unassigned orders available for this date.</p>
+              <p className="text-ordak-gray-400">No unassigned orders available for this date.</p>
             )}
             {unassignedOrders && unassignedOrders.length > 0 && (
               <>
-                <div className="orders-list">
+                <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
                   {unassignedOrders.map((order) => (
                     <div
                       key={order.id}
-                      className={`order-item ${selectedNewOrderIds.includes(order.id) ? 'selected' : ''}`}
                       onClick={() => toggleNewOrderSelection(order.id)}
+                      className={clsx(
+                        'flex items-center gap-4 p-3 rounded-lg border cursor-pointer transition-all',
+                        selectedNewOrderIds.includes(order.id)
+                          ? 'bg-gradient-green-start/10 border-gradient-green-start'
+                          : 'bg-dark-card border-dark-border hover:border-ordak-gray-600'
+                      )}
                     >
                       <input
                         type="checkbox"
                         checked={selectedNewOrderIds.includes(order.id)}
                         readOnly
+                        className="w-4 h-4 rounded"
                       />
-                      <div className="order-info">
-                        <div className="order-number">{order.orderNumber}</div>
-                        <div className="order-customer">
-                          {order.customer?.firstName ?? ''} {order.customer?.lastName ?? ''}
-                        </div>
-                        <div className="order-address">
-                          {order.address?.line1 ?? ''}, {order.address?.city ?? ''}
-                        </div>
+                      <div>
+                        <p className="font-medium text-white">{order.orderNumber}</p>
+                        <p className="text-sm text-ordak-gray-400">
+                          {order.customer?.firstName ?? ''} {order.customer?.lastName ?? ''} - {order.address?.line1 ?? ''}, {order.address?.city ?? ''}
+                        </p>
                       </div>
                     </div>
                   ))}
                 </div>
-                <button
+                <Button
+                  variant="primary"
                   onClick={handleAddOrders}
-                  className="btn btn-primary"
                   disabled={selectedNewOrderIds.length === 0 || assignOrdersMutation.isPending}
                 >
                   Add Selected Orders ({selectedNewOrderIds.length})
-                </button>
+                </Button>
               </>
             )}
           </div>
         )}
 
+        {/* Orders List */}
         {run.orders && run.orders.length === 0 ? (
-          <div className="empty-state">No orders assigned to this run yet.</div>
+          <div className="text-center py-12 text-ordak-gray-400">
+            No orders assigned to this run yet.
+          </div>
         ) : (
-          <div className="orders-table">
+          <div className="space-y-3">
             {run.orders?.map((order, index) => (
-              <div key={order.id} className="order-row">
-                <div className="order-sequence">#{index + 1}</div>
-                <div className="order-details">
-                  <div className="order-number">{order.orderNumber}</div>
-                  <div className="order-customer">
-                    {order.customer.firstName} {order.customer.lastName}
+              <div
+                key={order.id}
+                className="bg-dark-bg rounded-lg border border-dark-border p-4 flex items-center gap-4"
+              >
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gradient-pink-start to-gradient-pink-end flex items-center justify-center text-white font-semibold text-sm">
+                  {index + 1}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="font-semibold text-white">{order.orderNumber}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${orderStatusStyles[order.status] || 'bg-ordak-gray-600/20 text-ordak-gray-400'}`}>
+                      {order.status}
+                    </span>
                   </div>
-                  <div className="order-address">
-                    {order.address.line1}, {order.address.city}
-                  </div>
+                  <p className="text-sm text-ordak-gray-400">
+                    {order.customer?.firstName ?? 'Unknown'} {order.customer?.lastName ?? ''}
+                  </p>
+                  <p className="text-sm text-ordak-gray-600">
+                    {order.address?.line1 ?? 'Address unavailable'}{order.address?.city ? `, ${order.address.city}` : ''}
+                  </p>
                   {order.specialInstructions && (
-                    <div className="order-instructions">📝 {order.specialInstructions}</div>
+                    <p className="text-sm text-gradient-yellow-start mt-1">
+                      Note: {order.specialInstructions}
+                    </p>
                   )}
                 </div>
-                <div className="order-status">
-                  <span className={`status-badge-sm status-${order.status.toLowerCase()}`}>
-                    {order.status}
-                  </span>
-                </div>
-                <div className="order-actions">
-                  <Link to={`/orders/${order.id}`} className="btn-link">
+                <div className="flex items-center gap-2">
+                  <Link
+                    to={`/orders/${order.id}`}
+                    className="text-sm text-gradient-cyan-start hover:underline"
+                  >
                     View
                   </Link>
                   <button
                     onClick={() => handleUnassignOrder(order.id)}
-                    className="btn-link danger"
+                    className="text-sm text-ordak-red-light hover:underline"
                     disabled={unassignOrderMutation.isPending}
                   >
                     Remove

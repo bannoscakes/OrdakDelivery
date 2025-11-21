@@ -1,10 +1,20 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { Truck, Plus, Filter } from 'lucide-react';
 import { deliveryRunsApi } from '../api';
 import { RunStatus } from '../types';
 import { formatDate } from '../utils/date';
-import './DeliveryRuns.css';
+import { Button } from '../components/ui/Button';
+
+const statusStyles: Record<string, string> = {
+  [RunStatus.DRAFT]: 'bg-ordak-gray-600/20 text-ordak-gray-400',
+  [RunStatus.PLANNED]: 'bg-gradient-cyan-start/20 text-gradient-cyan-start',
+  [RunStatus.ASSIGNED]: 'bg-gradient-purple-start/20 text-gradient-purple-start',
+  [RunStatus.IN_PROGRESS]: 'bg-gradient-yellow-start/20 text-gradient-yellow-start',
+  [RunStatus.COMPLETED]: 'bg-gradient-green-start/20 text-gradient-green-start',
+  [RunStatus.CANCELLED]: 'bg-ordak-red-primary/20 text-ordak-red-primary',
+};
 
 export function DeliveryRuns() {
   const [statusFilter, setStatusFilter] = useState<RunStatus | ''>('');
@@ -18,107 +28,126 @@ export function DeliveryRuns() {
       }),
   });
 
-  const getStatusColor = (status: RunStatus) => {
-    const colors: Record<RunStatus, string> = {
-      [RunStatus.DRAFT]: '#6c757d',
-      [RunStatus.PLANNED]: '#0dcaf0',
-      [RunStatus.ASSIGNED]: '#0d6efd',
-      [RunStatus.IN_PROGRESS]: '#ffc107',
-      [RunStatus.COMPLETED]: '#198754',
-      [RunStatus.CANCELLED]: '#dc3545',
-    };
-    return colors[status] || '#6c757d';
-  };
-
   return (
-    <div className="delivery-runs-page">
-      <div className="page-header">
-        <h1>Delivery Runs</h1>
-        <Link to="/runs/create" className="btn btn-primary">
-          Create New Run
+    <div className="p-6 bg-dark-bg min-h-full">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+            <Truck className="text-gradient-pink-start" />
+            Delivery Runs
+          </h1>
+          <p className="text-ordak-gray-400">
+            Plan and manage delivery routes
+          </p>
+        </div>
+        <Link to="/runs/create">
+          <Button variant="primary">
+            <Plus size={18} className="mr-2" />
+            Create New Run
+          </Button>
         </Link>
       </div>
 
-      <div className="filters">
-        <label>
-          Filter by Status:
+      {/* Filter Bar */}
+      <div className="bg-dark-card rounded-xl border border-dark-border p-4 mb-6">
+        <div className="flex items-center gap-4">
+          <Filter className="text-ordak-gray-400" size={20} />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as RunStatus | '')}
+            className="bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-gradient-pink-start"
           >
             <option value="">All Statuses</option>
             {Object.values(RunStatus).map((status) => (
               <option key={status} value={status}>
-                {status}
+                {status.replace('_', ' ')}
               </option>
             ))}
           </select>
-        </label>
+        </div>
       </div>
 
-      {isLoading && <div className="loading">Loading delivery runs...</div>}
+      {isLoading && (
+        <div className="text-center py-12 text-ordak-gray-400">
+          Loading delivery runs...
+        </div>
+      )}
 
       {error && (
-        <div className="error">
+        <div className="bg-ordak-red-primary/20 border border-ordak-red-primary/30 rounded-xl p-4 text-ordak-red-light">
           Error loading delivery runs: {error instanceof Error ? error.message : 'Unknown error'}
         </div>
       )}
 
       {data && (
-        <div className="runs-grid">
+        <>
           {data.data.length === 0 ? (
-            <div className="empty-state">
-              <p>No delivery runs found.</p>
-              <Link to="/runs/create" className="btn btn-primary">
-                Create Your First Run
+            <div className="text-center py-16">
+              <Truck className="mx-auto text-ordak-gray-600 mb-4" size={64} />
+              <h3 className="text-xl font-semibold text-white mb-2">No delivery runs found</h3>
+              <p className="text-ordak-gray-400 mb-6">Create your first delivery run to get started</p>
+              <Link to="/runs/create">
+                <Button variant="primary">
+                  <Plus size={18} className="mr-2" />
+                  Create Your First Run
+                </Button>
               </Link>
             </div>
           ) : (
-            data.data.map((run) => (
-              <div key={run.id} className="run-card">
-                <div className="run-card-header">
-                  <h3>{run.name}</h3>
-                  <span
-                    className="status-badge"
-                    style={{ backgroundColor: getStatusColor(run.status) }}
-                  >
-                    {run.status}
-                  </span>
-                </div>
-                <div className="run-card-body">
-                  <div className="run-detail">
-                    <strong>Date:</strong> {formatDate(run.scheduledDate)}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {data.data.map((run) => (
+                <Link
+                  key={run.id}
+                  to={`/runs/${run.id}`}
+                  className="bg-dark-card rounded-xl border border-dark-border p-5 hover:border-ordak-gray-600 transition-all hover:shadow-lg"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="font-semibold text-white text-lg">{run.name}</h3>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyles[run.status] || statusStyles[RunStatus.DRAFT]}`}>
+                      {run.status.replace('_', ' ')}
+                    </span>
                   </div>
-                  {run.driver && (
-                    <div className="run-detail">
-                      <strong>Driver:</strong> {run.driver.firstName} {run.driver.lastName}
-                    </div>
-                  )}
-                  {run.vehicle && (
-                    <div className="run-detail">
-                      <strong>Vehicle:</strong> {run.vehicle.make} {run.vehicle.model} (
-                      {run.vehicle.licensePlate})
-                    </div>
-                  )}
-                  <div className="run-detail">
-                    <strong>Orders:</strong> {run.orders?.length || 0}
-                  </div>
-                </div>
-                <div className="run-card-footer">
-                  <Link to={`/runs/${run.id}`} className="btn btn-sm">
-                    View Details
-                  </Link>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
 
-      {data && data.pagination && data.pagination.totalPages > 1 && (
-        <div className="pagination">
-          Page {data.pagination.page} of {data.pagination.totalPages}
-        </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-ordak-gray-400">Date</span>
+                      <span className="text-white">{formatDate(run.scheduledDate)}</span>
+                    </div>
+                    {run.driver && (
+                      <div className="flex justify-between">
+                        <span className="text-ordak-gray-400">Driver</span>
+                        <span className="text-white">{run.driver.firstName} {run.driver.lastName}</span>
+                      </div>
+                    )}
+                    {run.vehicle && (
+                      <div className="flex justify-between">
+                        <span className="text-ordak-gray-400">Vehicle</span>
+                        <span className="text-white">{run.vehicle.licensePlate}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-ordak-gray-400">Orders</span>
+                      <span className="text-white font-medium">{run.orders?.length || 0}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-dark-border">
+                    <span className="text-gradient-pink-start text-sm font-medium">
+                      View Details →
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {data.pagination && data.pagination.totalPages > 1 && (
+            <div className="mt-6 text-center text-ordak-gray-400">
+              Page {data.pagination.page} of {data.pagination.totalPages}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
