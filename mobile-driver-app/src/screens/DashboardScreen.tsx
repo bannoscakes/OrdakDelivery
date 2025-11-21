@@ -59,10 +59,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   };
 
   const todayRuns = runs.filter(run =>
-    ['ASSIGNED', 'PLANNED', 'IN_PROGRESS'].includes(run.status),
+    ['assigned', 'planned', 'in_progress'].includes(run.status),
   );
 
-  const activeRun = runs.find(run => run.status === 'IN_PROGRESS');
+  const activeRun = runs.find(run => run.status === 'in_progress');
 
   return (
     <View style={styles.container}>
@@ -98,7 +98,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
               </View>
               <View style={styles.stat}>
                 <Text style={styles.statValue}>
-                  {activeRun.orders.filter(o => o.status === 'DELIVERED').length}
+                  {activeRun.orders.filter(o => o.status === 'delivered').length}
                 </Text>
                 <Text style={styles.statLabel}>Completed</Text>
               </View>
@@ -156,15 +156,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
                   <Text style={styles.runDetailText}>
                     🚗 {run.vehicle.make} {run.vehicle.model}
                   </Text>
-                  {run.totalDistance && (
+                  {run.totalDistanceKm && (
                     <Text style={styles.runDetailText}>
-                      📏 {(run.totalDistance / 1000).toFixed(1)} km
+                      📏 {run.totalDistanceKm.toFixed(1)} km
                     </Text>
                   )}
                 </View>
-                {run.startedAt && (
+                {run.actualStartTime && (
                   <Text style={styles.runTime}>
-                    Started: {format(new Date(run.startedAt), 'h:mm a')}
+                    Started: {format(new Date(run.actualStartTime), 'h:mm a')}
                   </Text>
                 )}
               </TouchableOpacity>

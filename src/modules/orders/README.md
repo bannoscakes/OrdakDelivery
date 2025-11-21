@@ -217,6 +217,89 @@ Delete an order.
 HTTP 204 No Content
 ```
 
+### POST /api/v1/orders/:id/proof-of-delivery
+Submit proof of delivery with signature, photos, and notes.
+
+**Access**: Driver (for their assigned orders), Admin, Dispatcher (for any order)
+
+**Request:**
+```json
+{
+  "signatureUrl": "https://storage.example.com/signatures/abc123.png",
+  "photoUrls": [
+    "https://storage.example.com/photos/photo1.jpg",
+    "https://storage.example.com/photos/photo2.jpg"
+  ],
+  "deliveryNotes": "Delivered to front desk",
+  "recipientName": "John Smith"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "clxxx...",
+    "orderNumber": "ORD-20231218-001",
+    "status": "DELIVERED",
+    "deliveredAt": "2023-12-20T14:30:00.000Z",
+    "signatureUrl": "https://storage.example.com/signatures/abc123.png",
+    "photoUrls": [
+      "https://storage.example.com/photos/photo1.jpg",
+      "https://storage.example.com/photos/photo2.jpg"
+    ],
+    "deliveryNotes": "Delivered to front desk",
+    ...
+  }
+}
+```
+
+### POST /api/v1/orders/:id/delivered
+Mark order as delivered without proof of delivery.
+
+**Access**: Driver (for their assigned orders), Admin, Dispatcher (for any order)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "clxxx...",
+    "orderNumber": "ORD-20231218-001",
+    "status": "DELIVERED",
+    "deliveredAt": "2023-12-20T14:30:00.000Z",
+    ...
+  }
+}
+```
+
+### POST /api/v1/orders/:id/failed
+Mark order as failed with failure reason.
+
+**Access**: Driver (for their assigned orders), Admin, Dispatcher (for any order)
+
+**Request:**
+```json
+{
+  "failureReason": "Customer not home, will retry tomorrow"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "clxxx...",
+    "orderNumber": "ORD-20231218-001",
+    "status": "FAILED",
+    "deliveryNotes": "Customer not home, will retry tomorrow",
+    ...
+  }
+}
+```
+
 ## Order Status Lifecycle
 
 ```
@@ -304,6 +387,75 @@ All endpoints return errors in this format:
 - `403` - Forbidden (insufficient permissions)
 - `404` - Order not found
 - `500` - Internal server error
+
+## Proof of Delivery (POD)
+
+Proof of delivery allows drivers to confirm successful deliveries with supporting evidence.
+
+### POD Data Fields
+
+- **signatureUrl**: URL to customer signature image (PNG, JPG)
+- **photoUrls**: Array of URLs to delivery photos (package at door, etc.)
+- **deliveryNotes**: Free-text notes from driver ("Delivered to front desk")
+- **recipientName**: Name of person who received the delivery (optional)
+- **deliveredAt**: Timestamp of delivery (auto-set)
+
+### POD Submission Flow
+
+1. **Driver completes delivery** in mobile app
+2. **Capture signature** (if required) - draws on screen, saves as image
+3. **Take photos** (optional) - photo of package at delivery location
+4. **Add notes** (optional) - special instructions or delivery details
+5. **Submit POD** via `POST /orders/:id/proof-of-delivery`
+6. **Order status** automatically changes to DELIVERED
+7. **Customer notification** sent (if configured)
+
+### POD without Evidence
+
+For deliveries that don't require proof (e.g., contactless), use:
+- `POST /orders/:id/delivered` - Mark as delivered without POD data
+
+### Failed Deliveries
+
+For unsuccessful delivery attempts, use:
+- `POST /orders/:id/failed` - Mark as failed with reason
+- Order status changes to FAILED
+- Dispatcher can reschedule or reassign
+
+### Storage Integration
+
+The API accepts URLs for signatures and photos. Storage handling options:
+
+1. **Client-side upload**: Mobile app uploads to S3/Cloud Storage, passes URLs to API
+2. **API upload**: Future enhancement - accept base64 images, API handles upload
+3. **Signed URLs**: Use pre-signed URLs for secure direct uploads
+
+### Driver Permissions
+
+Drivers can only submit POD for orders in their assigned delivery runs:
+- **Mobile app** authenticates as Driver role
+- **API validates** order is in driver's active run
+- **Admin/Dispatcher** can submit POD for any order (override)
+
+### POD Retrieval
+
+POD data is included in order details:
+```typescript
+const response = await fetch(`/api/v1/orders/${orderId}`);
+const { data } = await response.json();
+
+console.log('Signature:', data.signatureUrl);
+console.log('Photos:', data.photoUrls);
+console.log('Notes:', data.deliveryNotes);
+console.log('Delivered at:', data.deliveredAt);
+```
+
+### Use Cases
+
+- **Legal proof**: Signature confirms delivery for high-value items
+- **Quality assurance**: Photos verify correct delivery location
+- **Customer service**: Notes explain delivery details
+- **Dispute resolution**: Evidence for delivery confirmation
 
 ## Shopify Integration
 

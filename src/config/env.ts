@@ -76,6 +76,9 @@ const envSchema = z.object({
     .transform((val) => val === 'true')
     .default('false'),
   PELIAS_API_URL: z.string().url().optional(),
+
+  // Customer Tracking Portal
+  TRACKING_BASE_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

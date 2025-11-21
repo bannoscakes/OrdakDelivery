@@ -1,4 +1,5 @@
-import { PrismaClient, OrderType, OrderStatus, DriverStatus, VehicleType } from '@prisma/client';
+import { PrismaClient, OrderType, OrderStatus, DriverStatus, VehicleType, VehicleStatus } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -42,39 +43,64 @@ async function main() {
 
   console.log('✓ Created 3 customers');
 
-  // Create drivers
+  // Create drivers (with User accounts)
   console.log('Creating drivers...');
-  const driver1 = await prisma.driver.upsert({
+
+  const passwordHash = await bcrypt.hash('password123', 10);
+
+  // Driver 1
+  const user1 = await prisma.user.upsert({
     where: { email: 'driver1@ordak.com' },
     update: {},
     create: {
       email: 'driver1@ordak.com',
+      passwordHash,
+      role: 'driver',
       firstName: 'Mike',
       lastName: 'Wilson',
       phone: '+14165551111',
-      licenseNumber: 'D1234567',
-      status: DriverStatus.ACTIVE,
-      startTime: '08:00',
-      endTime: '17:00',
+      isActive: true,
     },
   });
 
-  const driver2 = await prisma.driver.upsert({
+  const driver1 = await prisma.driver.upsert({
+    where: { driverLicense: 'D1234567' },
+    update: {},
+    create: {
+      userId: user1.id,
+      driverLicense: 'D1234567',
+      licenseExpiry: new Date('2026-12-31'),
+      status: DriverStatus.available,
+    },
+  });
+
+  // Driver 2
+  const user2 = await prisma.user.upsert({
     where: { email: 'driver2@ordak.com' },
     update: {},
     create: {
       email: 'driver2@ordak.com',
+      passwordHash,
+      role: 'driver',
       firstName: 'Sarah',
       lastName: 'Davis',
       phone: '+14165552222',
-      licenseNumber: 'D7654321',
-      status: DriverStatus.ACTIVE,
-      startTime: '09:00',
-      endTime: '18:00',
+      isActive: true,
     },
   });
 
-  console.log('✓ Created 2 drivers');
+  const driver2 = await prisma.driver.upsert({
+    where: { driverLicense: 'D7654321' },
+    update: {},
+    create: {
+      userId: user2.id,
+      driverLicense: 'D7654321',
+      licenseExpiry: new Date('2027-06-30'),
+      status: DriverStatus.available,
+    },
+  });
+
+  console.log('✓ Created 2 drivers with user accounts');
 
   // Create vehicles
   console.log('Creating vehicles...');
@@ -86,11 +112,10 @@ async function main() {
       make: 'Ford',
       model: 'Transit',
       year: 2022,
-      type: VehicleType.VAN,
-      maxWeight: 1000,
-      maxVolume: 15,
-      maxStops: 30,
-      isActive: true,
+      type: VehicleType.van,
+      capacityKg: 1000,
+      capacityCubicM: 15,
+      status: VehicleStatus.active,
     },
   });
 
@@ -102,11 +127,10 @@ async function main() {
       make: 'Toyota',
       model: 'Sienna',
       year: 2021,
-      type: VehicleType.VAN,
-      maxWeight: 800,
-      maxVolume: 12,
-      maxStops: 25,
-      isActive: true,
+      type: VehicleType.van,
+      capacityKg: 800,
+      capacityCubicM: 12,
+      status: VehicleStatus.active,
     },
   });
 
@@ -174,7 +198,7 @@ async function main() {
       update: {},
       create: {
         orderNumber: `ORD-SEED-${i + 1}`,
-        type: OrderType.DELIVERY,
+        type: OrderType.delivery,
         status: OrderStatus.PENDING,
         customerId: addr.customerId,
         addressLine1: addr.line1,

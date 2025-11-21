@@ -5,69 +5,118 @@ import { Driver, DriverStatus, Prisma } from '@prisma/client';
 import { MAX_PAGINATION_LIMIT, DEFAULT_PAGINATION_LIMIT } from '@/constants/pagination';
 import { getBusyResourceIds } from '@/utils/availability';
 import { MS_PER_WEEK } from '@/constants/time';
+import bcrypt from 'bcrypt';
 
 interface CreateDriverInput {
   email: string;
+  password: string;
   firstName: string;
   lastName: string;
-  phone: string;
-  licenseNumber?: string;
-  startTime?: string;
-  endTime?: string;
-  traccarDeviceId?: string;
+  phone?: string;
+  driverLicense: string;
+  licenseExpiry: Date;
+  vehicleId?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
 }
 
 interface UpdateDriverInput {
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  licenseNumber?: string;
+  driverLicense?: string;
+  licenseExpiry?: Date;
+  vehicleId?: string;
   status?: DriverStatus;
-  startTime?: string;
-  endTime?: string;
-  traccarDeviceId?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
 }
+
+// Safe user fields to expose in API responses (excludes sensitive data)
+const safeUserSelect = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+  role: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  // Excluded: passwordHash, emailVerified, lastLoginAt
+} as const;
 
 export class DriversService {
   /**
    * Create a new driver
-   * @param input - Driver creation data including name, email, phone, and license
-   * @returns Promise resolving to the created driver
+   * Creates a User record first, then links a Driver record to it
+   * @param input - Driver creation data including user info and driver-specific details
+   * @returns Promise resolving to the created driver with user relation
    * @throws {AppError} If email is already in use or creation fails
    */
   async createDriver(input: CreateDriverInput): Promise<Driver> {
     try {
-      // Check if driver with email already exists
-      const existing = await prisma.driver.findUnique({
+      // Check if user with email already exists
+      const existingUser = await prisma.user.findUnique({
         where: { email: input.email },
       });
 
-      if (existing) {
-        throw new AppError(409, 'Driver with this email already exists');
+      if (existingUser) {
+        throw new AppError(409, 'User with this email already exists');
       }
 
-      const driver = await prisma.driver.create({
-        data: {
-          email: input.email,
-          firstName: input.firstName,
-          lastName: input.lastName,
-          phone: input.phone,
-          licenseNumber: input.licenseNumber,
-          startTime: input.startTime,
-          endTime: input.endTime,
-          traccarDeviceId: input.traccarDeviceId,
-          status: DriverStatus.ACTIVE,
-        },
+      // Check if driver license already exists
+      const existingLicense = await prisma.driver.findUnique({
+        where: { driverLicense: input.driverLicense },
       });
 
-      logger.info('Driver created', { driverId: driver.id, email: driver.email });
+      if (existingLicense) {
+        throw new AppError(409, 'Driver with this license number already exists');
+      }
+
+      // Hash password
+      const passwordHash = await bcrypt.hash(input.password, 10);
+
+      // Create User and Driver in a transaction
+      const driver = await prisma.$transaction(async (tx) => {
+        // Create User first
+        const user = await tx.user.create({
+          data: {
+            email: input.email,
+            passwordHash,
+            role: 'driver',
+            firstName: input.firstName,
+            lastName: input.lastName,
+            phone: input.phone,
+            isActive: true,
+          },
+        });
+
+        // Create Driver linked to User
+        return tx.driver.create({
+          data: {
+            userId: user.id,
+            driverLicense: input.driverLicense,
+            licenseExpiry: input.licenseExpiry,
+            vehicleId: input.vehicleId,
+            status: DriverStatus.available,
+            emergencyContactName: input.emergencyContactName,
+            emergencyContactPhone: input.emergencyContactPhone,
+          },
+          include: {
+            user: {
+              select: safeUserSelect,
+            },
+            vehicle: true,
+          },
+        });
+      });
+
+      logger.info('Driver created', { driverId: driver.id, userId: driver.userId });
 
       return driver;
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
       }
-      logger.error('Failed to create driver', { input, error });
+      logger.error('Failed to create driver', { email: input.email, error });
       throw new AppError(500, 'Failed to create driver');
     }
   }
@@ -80,19 +129,23 @@ export class DriversService {
   async getDriverById(id: string, includeRuns: boolean = false): Promise<Driver> {
     const driver = await prisma.driver.findUnique({
       where: { id },
-      include: includeRuns
-        ? {
-            deliveryRuns: {
-              where: {
-                scheduledDate: {
-                  gte: new Date(Date.now() - MS_PER_WEEK), // Last 7 days
-                },
+      include: {
+        user: {
+          select: safeUserSelect,
+        },
+        vehicle: true,
+        ...(includeRuns && {
+          deliveryRuns: {
+            where: {
+              scheduledDate: {
+                gte: new Date(Date.now() - MS_PER_WEEK), // Last 7 days
               },
-              orderBy: { scheduledDate: 'desc' },
-              take: 10,
             },
-          }
-        : undefined,
+            orderBy: { scheduledDate: 'desc' },
+            take: 10,
+          },
+        }),
+      },
     });
 
     if (!driver) {
@@ -118,7 +171,17 @@ export class DriversService {
     const [drivers, total] = await Promise.all([
       prisma.driver.findMany({
         where,
-        orderBy: { firstName: 'asc' },
+        include: {
+          user: {
+            select: safeUserSelect,
+          },
+          vehicle: true,
+        },
+        orderBy: {
+          user: {
+            firstName: 'asc',
+          },
+        },
         skip,
         take: limit,
       }),
@@ -152,6 +215,7 @@ export class DriversService {
 
   /**
    * Delete driver
+   * Deletes the User record, which will cascade delete the Driver
    */
   async deleteDriver(id: string): Promise<void> {
     // Check if driver has active runs
@@ -159,7 +223,7 @@ export class DriversService {
       where: {
         driverId: id,
         status: {
-          in: ['PLANNED', 'ASSIGNED', 'IN_PROGRESS'],
+          in: ['planned', 'assigned', 'in_progress'],
         },
       },
     });
@@ -168,16 +232,27 @@ export class DriversService {
       throw new AppError(400, 'Cannot delete driver with active delivery runs');
     }
 
-    await prisma.driver.delete({
+    // Get driver to find userId
+    const driver = await prisma.driver.findUnique({
       where: { id },
+      select: { userId: true },
     });
 
-    logger.info('Driver deleted', { driverId: id });
+    if (!driver) {
+      throw new AppError(404, 'Driver not found');
+    }
+
+    // Delete User (Driver will be cascade deleted)
+    await prisma.user.delete({
+      where: { id: driver.userId },
+    });
+
+    logger.info('Driver and associated user deleted', { driverId: id, userId: driver.userId });
   }
 
   /**
    * Get available drivers for a specific date/time
-   * Returns drivers who are active and don't have a run scheduled for the given date
+   * Returns drivers who are available and don't have a run scheduled for the given date
    * @param date - Date to check availability for
    * @returns Promise resolving to list of available drivers
    */
@@ -186,12 +261,25 @@ export class DriversService {
 
     return prisma.driver.findMany({
       where: {
-        status: DriverStatus.ACTIVE,
+        status: DriverStatus.available,
+        user: {
+          isActive: true,
+        },
         id: {
           notIn: busyDriverIds,
         },
       },
-      orderBy: { firstName: 'asc' },
+      include: {
+        user: {
+          select: safeUserSelect,
+        },
+        vehicle: true,
+      },
+      orderBy: {
+        user: {
+          firstName: 'asc',
+        },
+      },
     });
   }
 }

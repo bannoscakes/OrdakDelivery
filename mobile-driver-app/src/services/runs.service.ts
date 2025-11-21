@@ -35,7 +35,7 @@ class RunsService {
     const response = await apiClient.get<DeliveryRun[]>('/runs/my-runs', {
       scheduledAfter: `${today}T00:00:00Z`,
       scheduledBefore: `${today}T23:59:59Z`,
-      status: 'ASSIGNED,PLANNED,IN_PROGRESS',
+      status: 'assigned,planned,in_progress',
     });
     return response.data;
   }
@@ -67,7 +67,7 @@ class RunsService {
     const response = await apiClient.get<DeliveryRun[]>('/runs/my-runs', {
       scheduledAfter: today.toISOString(),
       scheduledBefore: nextWeek.toISOString(),
-      status: 'ASSIGNED,PLANNED',
+      status: 'assigned,planned',
     });
     return response.data;
   }
@@ -77,7 +77,7 @@ class RunsService {
    */
   async getRunHistory(page: number = 1, limit: number = 20): Promise<PaginatedResponse<DeliveryRun>> {
     const response = await apiClient.get<PaginatedResponse<DeliveryRun>>('/runs/my-runs', {
-      status: 'COMPLETED',
+      status: 'completed',
       page,
       limit,
     });
