@@ -29,7 +29,7 @@ export function Drivers() {
             Manage your delivery team
           </p>
         </div>
-        <Button variant="primary">
+        <Button variant="primary" disabled title="Coming soon">
           <UserPlus size={18} className="mr-2" />
           Add Driver
         </Button>

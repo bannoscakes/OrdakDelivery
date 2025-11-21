@@ -28,7 +28,7 @@ export function Vehicles() {
             Manage your delivery fleet
           </p>
         </div>
-        <Button variant="primary">
+        <Button variant="primary" disabled title="Coming soon">
           <Plus size={18} className="mr-2" />
           Add Vehicle
         </Button>
@@ -99,7 +99,7 @@ export function Vehicles() {
         <div className="text-center py-12">
           <Car className="mx-auto text-ordak-gray-600 mb-4" size={48} />
           <p className="text-ordak-gray-400">No vehicles found</p>
-          <Button variant="primary" className="mt-4">
+          <Button variant="primary" className="mt-4" disabled title="Coming soon">
             <Plus size={18} className="mr-2" />
             Add Your First Vehicle
           </Button>
