@@ -84,7 +84,7 @@ export function DeliveryRuns() {
           </p>
           <p className="text-ordak-gray-600 text-sm">Please check your connection and try again.</p>
         </div>
-      ) : data ? (
+      ) : data?.data ? (
         <>
           {data.data.length === 0 ? (
             <div className="bg-dark-card rounded-xl border border-dark-border p-12 text-center">

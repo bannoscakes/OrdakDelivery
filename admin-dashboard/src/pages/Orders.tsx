@@ -65,7 +65,7 @@ export function Orders() {
           </p>
           <p className="text-ordak-gray-600 text-sm">Please check your connection and try again.</p>
         </div>
-      ) : data && data.data.length > 0 ? (
+      ) : data?.data?.length ? (
         <div className="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
           <div className="p-4 border-b border-dark-border">
             <p className="text-ordak-gray-400">
@@ -97,7 +97,7 @@ export function Orders() {
             ))}
           </div>
         </div>
-      ) : data && data.data.length === 0 ? (
+      ) : data?.data && data.data.length === 0 ? (
         <div className="bg-dark-card rounded-xl border border-dark-border p-12 text-center">
           <Package className="mx-auto text-ordak-gray-600 mb-4" size={48} />
           <h3 className="text-lg font-semibold text-white mb-2">No orders yet</h3>

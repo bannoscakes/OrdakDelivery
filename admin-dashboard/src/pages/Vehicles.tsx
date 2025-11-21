@@ -64,7 +64,7 @@ export function Vehicles() {
           </p>
           <p className="text-ordak-gray-600 text-sm">Please check your connection and try again.</p>
         </div>
-      ) : data && data.data.length > 0 ? (
+      ) : data?.data?.length ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {data.data.map((vehicle) => {
             const status = statusStyles[vehicle.status] || statusStyles.inactive;
@@ -97,7 +97,7 @@ export function Vehicles() {
             );
           })}
         </div>
-      ) : data && data.data.length === 0 ? (
+      ) : data?.data && data.data.length === 0 ? (
         <div className="bg-dark-card rounded-xl border border-dark-border p-12 text-center">
           <Car className="mx-auto text-ordak-gray-600 mb-4" size={48} />
           <h3 className="text-lg font-semibold text-white mb-2">No vehicles yet</h3>
