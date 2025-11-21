@@ -21,19 +21,17 @@ const gradientStyles: Record<GradientVariant, string> = {
 };
 
 export const MetricCard = ({ icon, label, value, trend, variant }: MetricCardProps) => {
-  const hasGradient = !!variant;
-
   return (
     <div className={clsx(
       'rounded-xl p-5 transition-all duration-300 hover:scale-105 hover:shadow-2xl',
-      hasGradient
+      variant
         ? `${gradientStyles[variant]} text-white shadow-lg`
         : 'bg-dark-card border border-dark-border text-white hover:border-ordak-gray-600'
     )}>
       <div className="flex items-center justify-between mb-3">
         <span className={clsx(
           'text-2xl',
-          hasGradient ? 'opacity-90' : 'text-ordak-gray-400'
+          variant ? 'opacity-90' : 'text-ordak-gray-400'
         )}>
           {icon}
         </span>
@@ -41,22 +39,19 @@ export const MetricCard = ({ icon, label, value, trend, variant }: MetricCardPro
 
       <p className={clsx(
         'text-xs font-medium uppercase tracking-wider mb-1',
-        hasGradient ? 'text-white/80' : 'text-ordak-gray-400'
+        variant ? 'text-white/80' : 'text-ordak-gray-400'
       )}>
         {label}
       </p>
 
-      <p className={clsx(
-        'text-3xl font-bold mb-1',
-        hasGradient ? 'text-white' : 'text-white'
-      )}>
+      <p className="text-3xl font-bold mb-1 text-white">
         {value}
       </p>
 
       {trend && (
         <p className={clsx(
           'text-xs',
-          hasGradient ? 'text-white/70' : 'text-ordak-gray-600'
+          variant ? 'text-white/70' : 'text-ordak-gray-600'
         )}>
           {trend}
         </p>

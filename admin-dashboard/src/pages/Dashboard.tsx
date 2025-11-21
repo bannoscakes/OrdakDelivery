@@ -9,18 +9,18 @@ import { RunStatus, OrderStatus, DriverStatus } from '../types';
 export function Dashboard() {
   // Fetch dashboard data
   const { data: runsData } = useQuery({
-    queryKey: ['deliveryRuns'],
-    queryFn: () => deliveryRunsApi.list(),
+    queryKey: ['deliveryRuns', { limit: 50 }],
+    queryFn: () => deliveryRunsApi.list({ limit: 50 }),
   });
 
   const { data: ordersData } = useQuery({
-    queryKey: ['orders'],
-    queryFn: () => ordersApi.list(),
+    queryKey: ['orders', { limit: 50 }],
+    queryFn: () => ordersApi.list({ limit: 50 }),
   });
 
   const { data: driversData } = useQuery({
-    queryKey: ['drivers'],
-    queryFn: () => driversApi.list(),
+    queryKey: ['drivers', { limit: 50 }],
+    queryFn: () => driversApi.list({ limit: 50 }),
   });
 
   // Calculate metrics

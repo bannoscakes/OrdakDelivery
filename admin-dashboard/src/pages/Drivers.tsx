@@ -71,6 +71,9 @@ export function Drivers() {
           <div className="divide-y divide-dark-border">
             {data.data.map((driver) => {
               const status = statusStyles[driver.status] || statusStyles[DriverStatus.INACTIVE];
+              const firstInitial = driver.firstName?.trim()?.[0]?.toUpperCase() ?? '';
+              const lastInitial = driver.lastName?.trim()?.[0]?.toUpperCase() ?? '';
+              const initials = firstInitial + lastInitial || '?';
               return (
                 <div
                   key={driver.id}
@@ -78,14 +81,14 @@ export function Drivers() {
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gradient-purple-start to-gradient-purple-end flex items-center justify-center text-white font-semibold">
-                      {driver.firstName[0]}{driver.lastName[0]}
+                      {initials}
                     </div>
                     <div>
                       <p className="font-semibold text-white">
-                        {driver.firstName} {driver.lastName}
+                        {driver.firstName ?? 'Unknown'} {driver.lastName ?? ''}
                       </p>
                       <p className="text-sm text-ordak-gray-400">
-                        {driver.email} • {driver.phone}
+                        {driver.email ?? 'No email'} • {driver.phone ?? 'No phone'}
                       </p>
                     </div>
                   </div>

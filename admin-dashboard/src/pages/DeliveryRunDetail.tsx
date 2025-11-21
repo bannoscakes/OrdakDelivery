@@ -329,10 +329,10 @@ export function DeliveryRunDetail() {
                     </span>
                   </div>
                   <p className="text-sm text-ordak-gray-400">
-                    {order.customer.firstName} {order.customer.lastName}
+                    {order.customer?.firstName ?? 'Unknown'} {order.customer?.lastName ?? ''}
                   </p>
                   <p className="text-sm text-ordak-gray-600">
-                    {order.address.line1}, {order.address.city}
+                    {order.address?.line1 ?? 'Address unavailable'}{order.address?.city ? `, ${order.address.city}` : ''}
                   </p>
                   {order.specialInstructions && (
                     <p className="text-sm text-gradient-yellow-start mt-1">
