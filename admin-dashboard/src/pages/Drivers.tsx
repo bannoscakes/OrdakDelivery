@@ -50,18 +50,31 @@ export function Drivers() {
       </div>
 
       {isLoading && (
-        <div className="text-center py-12 text-ordak-gray-400">
-          Loading drivers...
+        <div className="bg-dark-card rounded-xl border border-dark-border p-12 text-center">
+          <div className="animate-pulse">
+            <Users className="mx-auto text-ordak-gray-600 mb-4" size={48} />
+            <p className="text-ordak-gray-400">Loading drivers...</p>
+          </div>
         </div>
       )}
 
       {error && (
-        <div className="bg-ordak-red-primary/20 border border-ordak-red-primary/30 rounded-xl p-4 text-ordak-red-light">
-          Error loading drivers
+        <div className="bg-dark-card rounded-xl border border-ordak-red-primary/30 p-12 text-center">
+          <Users className="mx-auto text-ordak-red-primary mb-4" size={48} />
+          <h3 className="text-lg font-semibold text-white mb-2">Unable to load drivers</h3>
+          <p className="text-ordak-gray-400">Please check that the API server is running on port 3000</p>
         </div>
       )}
 
-      {data && (
+      {data && data.data.length === 0 && (
+        <div className="bg-dark-card rounded-xl border border-dark-border p-12 text-center">
+          <Users className="mx-auto text-ordak-gray-600 mb-4" size={48} />
+          <h3 className="text-lg font-semibold text-white mb-2">No drivers yet</h3>
+          <p className="text-ordak-gray-400">Drivers will appear here once they are added</p>
+        </div>
+      )}
+
+      {data && data.data.length > 0 && (
         <div className="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
           <div className="p-4 border-b border-dark-border">
             <p className="text-ordak-gray-400">
