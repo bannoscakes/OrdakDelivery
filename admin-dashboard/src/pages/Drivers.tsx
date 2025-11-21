@@ -49,32 +49,29 @@ export function Drivers() {
         </div>
       </div>
 
-      {isLoading && (
+      {isLoading ? (
         <div className="bg-dark-card rounded-xl border border-dark-border p-12 text-center">
           <div className="animate-pulse">
             <Users className="mx-auto text-ordak-gray-600 mb-4" size={48} />
             <p className="text-ordak-gray-400">Loading drivers...</p>
           </div>
         </div>
-      )}
-
-      {error && (
+      ) : error ? (
         <div className="bg-dark-card rounded-xl border border-ordak-red-primary/30 p-12 text-center">
           <Users className="mx-auto text-ordak-red-primary mb-4" size={48} />
           <h3 className="text-lg font-semibold text-white mb-2">Unable to load drivers</h3>
-          <p className="text-ordak-gray-400">Please check that the API server is running on port 3000</p>
+          <p className="text-ordak-gray-400 mb-2">
+            {error instanceof Error ? error.message : 'An unexpected error occurred'}
+          </p>
+          <p className="text-ordak-gray-600 text-sm">Please check your connection and try again.</p>
         </div>
-      )}
-
-      {data && data.data.length === 0 && (
+      ) : data && data.data.length === 0 ? (
         <div className="bg-dark-card rounded-xl border border-dark-border p-12 text-center">
           <Users className="mx-auto text-ordak-gray-600 mb-4" size={48} />
           <h3 className="text-lg font-semibold text-white mb-2">No drivers yet</h3>
           <p className="text-ordak-gray-400">Drivers will appear here once they are added</p>
         </div>
-      )}
-
-      {data && data.data.length > 0 && (
+      ) : data && data.data.length > 0 ? (
         <div className="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
           <div className="p-4 border-b border-dark-border">
             <p className="text-ordak-gray-400">
@@ -114,7 +111,7 @@ export function Drivers() {
             })}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

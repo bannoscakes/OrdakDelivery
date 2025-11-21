@@ -48,24 +48,23 @@ export function Vehicles() {
         </div>
       </div>
 
-      {isLoading && (
+      {isLoading ? (
         <div className="bg-dark-card rounded-xl border border-dark-border p-12 text-center">
           <div className="animate-pulse">
             <Car className="mx-auto text-ordak-gray-600 mb-4" size={48} />
             <p className="text-ordak-gray-400">Loading vehicles...</p>
           </div>
         </div>
-      )}
-
-      {error && (
+      ) : error ? (
         <div className="bg-dark-card rounded-xl border border-ordak-red-primary/30 p-12 text-center">
           <Car className="mx-auto text-ordak-red-primary mb-4" size={48} />
           <h3 className="text-lg font-semibold text-white mb-2">Unable to load vehicles</h3>
-          <p className="text-ordak-gray-400">Please check that the API server is running on port 3000</p>
+          <p className="text-ordak-gray-400 mb-2">
+            {error instanceof Error ? error.message : 'An unexpected error occurred'}
+          </p>
+          <p className="text-ordak-gray-600 text-sm">Please check your connection and try again.</p>
         </div>
-      )}
-
-      {data && data.data.length > 0 && (
+      ) : data && data.data.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {data.data.map((vehicle) => {
             const status = statusStyles[vehicle.status] || statusStyles.inactive;
@@ -98,9 +97,7 @@ export function Vehicles() {
             );
           })}
         </div>
-      )}
-
-      {data && data.data.length === 0 && (
+      ) : data && data.data.length === 0 ? (
         <div className="bg-dark-card rounded-xl border border-dark-border p-12 text-center">
           <Car className="mx-auto text-ordak-gray-600 mb-4" size={48} />
           <h3 className="text-lg font-semibold text-white mb-2">No vehicles yet</h3>
@@ -110,7 +107,7 @@ export function Vehicles() {
             Add Your First Vehicle
           </Button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
