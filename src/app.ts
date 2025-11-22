@@ -2,6 +2,7 @@ import express, { Application } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import 'express-async-errors';
 
@@ -18,6 +19,7 @@ import ordersRouter from '@/modules/orders/orders.routes';
 import shopifyRouter from '@/modules/orders/shopify.routes';
 import geocodingRouter from '@/modules/geocoding/geocoding.routes';
 import driversRouter from '@/modules/drivers/drivers.routes';
+import driverLocationRouter from '@/modules/tracking/driver-location.routes';
 import vehiclesRouter from '@/modules/vehicles/vehicles.routes';
 import runsRouter from '@/modules/runs/runs.routes';
 import realtimeRouter from '@/modules/realtime/realtime.routes';
@@ -53,6 +55,9 @@ const createApp = (): Application => {
   app.use(preserveRawBody);
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+  // Cookie parsing for HttpOnly authentication cookies
+  app.use(cookieParser());
+
   // Logging
   if (env.NODE_ENV === 'development') {
     app.use(morgan('dev', { stream }));
@@ -73,7 +78,8 @@ const createApp = (): Application => {
   // Public tracking page (serve static HTML)
   app.use('/track', express.static(path.join(__dirname, '../public')));
   app.get('/track/:trackingNumber', (_req, res) => {
-    res.sendFile(path.join(__dirname, '../public/tracking.html'));
+    // Phase 2: Serve enhanced tracking page with live driver location map
+    res.sendFile(path.join(__dirname, '../public/tracking-map.html'));
   });
 
   // API version prefix
@@ -88,6 +94,7 @@ const createApp = (): Application => {
   app.use(`${apiPrefix}/orders`, ordersRouter);
   app.use(`${apiPrefix}/geocoding`, geocodingRouter);
   app.use(`${apiPrefix}/drivers`, driversRouter);
+  app.use(`${apiPrefix}/drivers`, driverLocationRouter); // Phase 2: Real-time driver location
   app.use(`${apiPrefix}/vehicles`, vehiclesRouter);
   app.use(`${apiPrefix}/runs`, runsRouter);
   app.use(`${apiPrefix}/realtime`, realtimeRouter);

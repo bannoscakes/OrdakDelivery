@@ -6,17 +6,27 @@ import logger from '../config/logger';
 
 export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization;
+    // Try to get token from cookie first (for admin dashboard), then from Authorization header (for mobile app)
+    let token: string | undefined;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Check HttpOnly cookie first
+    if (req.cookies && req.cookies.accessToken) {
+      token = req.cookies.accessToken;
+    } else {
+      // Fall back to Authorization header for mobile app
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7); // Remove 'Bearer ' prefix
+      }
+    }
+
+    if (!token) {
       res.status(401).json({
         error: 'Authentication required',
         message: 'No token provided',
       });
       return;
     }
-
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
     // Verify token
     const payload = verifyAccessToken(token);
@@ -67,13 +77,22 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 // Optional authentication - doesn't fail if no token, just doesn't attach user
 export const optionalAuthenticate = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization;
+    // Try to get token from cookie first (for admin dashboard), then from Authorization header (for mobile app)
+    let token: string | undefined;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (req.cookies && req.cookies.accessToken) {
+      token = req.cookies.accessToken;
+    } else {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
+
+    if (!token) {
       return next();
     }
 
-    const token = authHeader.substring(7);
     const payload = verifyAccessToken(token);
 
     const user = await prisma.user.findUnique({

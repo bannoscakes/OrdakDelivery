@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { MainLayout } from './layouts/MainLayout';
 import { Dashboard } from './pages/Dashboard';
 import { DeliveryRuns } from './pages/DeliveryRuns';
@@ -9,6 +11,7 @@ import { DeliveryRunDetail } from './pages/DeliveryRunDetail';
 import { Orders } from './pages/Orders';
 import { Drivers } from './pages/Drivers';
 import { Vehicles } from './pages/Vehicles';
+import { Login } from './pages/Login';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,20 +26,30 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Routes>
-          <Route path="/" element={<MainLayout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="runs" element={<DeliveryRuns />} />
-            <Route path="runs/create" element={<CreateDeliveryRun />} />
-            <Route path="runs/:id" element={<DeliveryRunDetail />} />
-            <Route path="orders" element={<Orders />} />
-            <Route path="drivers" element={<Drivers />} />
-            <Route path="vehicles" element={<Vehicles />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-      <ReactQueryDevtools initialIsOpen={false} />
+      <AuthProvider>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <MainLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Dashboard />} />
+              <Route path="runs" element={<DeliveryRuns />} />
+              <Route path="runs/create" element={<CreateDeliveryRun />} />
+              <Route path="runs/:id" element={<DeliveryRunDetail />} />
+              <Route path="orders" element={<Orders />} />
+              <Route path="drivers" element={<Drivers />} />
+              <Route path="vehicles" element={<Vehicles />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
