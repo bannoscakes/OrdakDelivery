@@ -86,7 +86,7 @@ export function Orders() {
                     </span>
                   </p>
                   <p className="text-sm text-ordak-gray-400 mt-1">
-                    {order.address?.line1 ?? '—'}, {order.address?.city ?? '—'} •{' '}
+                    {(order as any).deliveryAddress?.line1 ?? '—'}, {(order as any).deliveryAddress?.city ?? '—'} •{' '}
                     {order.scheduledDate ? formatDate(order.scheduledDate) : '—'}
                   </p>
                 </div>
