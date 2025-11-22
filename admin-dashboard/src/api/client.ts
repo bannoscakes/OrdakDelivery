@@ -8,20 +8,9 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Send cookies with requests
 });
 
-// Request interceptor to add JWT token
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Note: 401 handling is done in AuthContext to properly update state
+// Note: Authentication is handled via HttpOnly cookies
+// No need for request interceptor to add Authorization header
+// 401 handling is done in AuthContext to properly update state

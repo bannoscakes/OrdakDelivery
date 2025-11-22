@@ -9,7 +9,23 @@ export class AuthController {
 
       const result = await authService.register(data);
 
-      return res.status(201).json(result);
+      // Set HttpOnly cookies for tokens
+      res.cookie('accessToken', result.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000, // 15 minutes
+      });
+
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      // Return user data without tokens
+      return res.status(201).json({ user: result.user });
     } catch (error) {
       return res.status(400).json({
         error: 'Registration failed',
@@ -24,7 +40,23 @@ export class AuthController {
 
       const result = await authService.login(data);
 
-      return res.status(200).json(result);
+      // Set HttpOnly cookies for tokens
+      res.cookie('accessToken', result.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000, // 15 minutes
+      });
+
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      // Return user data without tokens
+      return res.status(200).json({ user: result.user });
     } catch (error) {
       return res.status(401).json({
         error: 'Login failed',
@@ -35,7 +67,8 @@ export class AuthController {
 
   async refreshToken(req: Request, res: Response) {
     try {
-      const { refreshToken }: RefreshTokenRequest = req.body;
+      // Get refresh token from cookie
+      const refreshToken = req.cookies.refreshToken;
 
       if (!refreshToken) {
         return res.status(400).json({
@@ -46,7 +79,22 @@ export class AuthController {
 
       const tokens = await authService.refreshToken(refreshToken);
 
-      return res.status(200).json(tokens);
+      // Set new HttpOnly cookies
+      res.cookie('accessToken', tokens.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000, // 15 minutes
+      });
+
+      res.cookie('refreshToken', tokens.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      return res.status(200).json({ message: 'Token refreshed successfully' });
     } catch (error) {
       return res.status(401).json({
         error: 'Token refresh failed',
@@ -100,8 +148,19 @@ export class AuthController {
   }
 
   async logout(_req: Request, res: Response) {
-    // For JWT-based auth, logout is handled client-side by removing the token
-    // This endpoint is here for API consistency and future token blacklisting
+    // Clear HttpOnly cookies
+    res.clearCookie('accessToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+
     return res.status(200).json({
       message: 'Logged out successfully',
     });

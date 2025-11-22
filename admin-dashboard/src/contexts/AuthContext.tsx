@@ -25,10 +25,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Call logout endpoint to clear HttpOnly cookies
+    try {
+      await apiClient.post('/auth/logout');
+    } catch (error) {
+      console.error('Logout API call failed:', error);
+    }
+
     setUser(null);
     setToken(null);
-    localStorage.removeItem('authToken');
   }, []);
 
   // Setup axios interceptor for 401 handling
@@ -49,28 +55,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [logout]);
 
-  // Load token from localStorage on mount
+  // Check authentication status on mount (cookie will be sent automatically)
   useEffect(() => {
-    const storedToken = localStorage.getItem('authToken');
-    if (storedToken) {
-      setToken(storedToken);
-      // Fetch user data
-      fetchUser(storedToken);
-    } else {
-      setIsLoading(false);
-    }
+    fetchUser();
   }, []);
 
-  const fetchUser = async (authToken: string) => {
+  const fetchUser = async () => {
     try {
-      const response = await apiClient.get('/auth/me', {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
+      // Cookie will be sent automatically with credentials: 'include'
+      const response = await apiClient.get('/auth/me');
       setUser(response.data);
+      setToken('authenticated'); // Set a dummy token value to indicate authenticated state
     } catch (error) {
       console.error('Failed to fetch user:', error);
-      // Token is invalid, clear it
-      localStorage.removeItem('authToken');
+      // Not authenticated or token expired
+      setUser(null);
       setToken(null);
     } finally {
       setIsLoading(false);
@@ -79,12 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
+      // Cookie will be set automatically by the backend via Set-Cookie header
       const response = await apiClient.post('/auth/login', { email, password });
-      const { user: userData, accessToken } = response.data;
+      const { user: userData } = response.data;
 
       setUser(userData);
-      setToken(accessToken);
-      localStorage.setItem('authToken', accessToken);
+      setToken('authenticated'); // Set a dummy token value to indicate authenticated state
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
